@@ -198,4 +198,4 @@ backbones_list = ['EEGNet',
                   'DeepConvNet',
                   'InceptionEEG']
 # visualize_record(methods_list=["Baseline", "EA","RA","DDC","DeepCoral","EEG_Infinity003"], tasks_list=tasks_list, selected_backbone="EEGNet", selected_metric="Target Domain Test Accuracy")
-visualize_record_anybackbone(methods_list=["Baseline","EA","RA","DDC","DeepCoral","EEG_Infinity003","EEG_Infinity005Wass"], tasks_list=tasks_list, selected_backbones=backbones_list, selected_metric="Target Domain Test Accuracy")
+visualize_record_anybackbone(methods_list=["Baseline","DDC","DeepCoral","DANN","DANNWass", "EEG_Infinity003","EEG_Infinity005Wass"], tasks_list=tasks_list, selected_backbones=backbones_list, selected_metric="Target Domain Test Accuracy")
