@@ -15,7 +15,7 @@ from torch.nn import init
 
 class EEG_Infinity(nn.Module):
 
-    def __init__(self, transfer_matrix_source, transfer_matrix_target, num_channels = 64, FIR_order=17, FIR_n=1, backbone_type='InceptionEEG',right_idx=None, left_idx=None):
+    def __init__(self, transfer_matrix_source, transfer_matrix_target, num_channels = 64, FIR_order=17, FIR_n=1, backbone_type='InceptionEEG',right_idx=None, left_idx=None, device='cuda'):
         super(EEG_Infinity, self).__init__()
 
         self.num_classes = 2
@@ -23,9 +23,9 @@ class EEG_Infinity(nn.Module):
 
         # 定义了源域alignment heads
         self.alignment_head_source = Alignment_head(transfer_matrix=transfer_matrix_source,
-                                                    FIR_order=FIR_order, FIR_n=FIR_n)
+                                                    FIR_order=FIR_order, FIR_n=FIR_n, device=device)
         self.alignment_head_target = Alignment_head(transfer_matrix=transfer_matrix_target,
-                                                    FIR_order=FIR_order, FIR_n=FIR_n)
+                                                    FIR_order=FIR_order, FIR_n=FIR_n, device=device)
         # 冻结源域的 channel_transfer_matrix
         self.alignment_head_source.frozen_transfer_matrix()
 
@@ -168,10 +168,10 @@ class FIR_convolution(nn.Module):
 
 
 class Alignment_head(nn.Module):
-    def __init__(self, transfer_matrix, FIR_order=17, FIR_n=1):
+    def __init__(self, transfer_matrix, FIR_order=17, FIR_n=1, device='cpu'):
         super(Alignment_head, self).__init__()
         self.channel_transfer_matrix = nn.Parameter(torch.eye(transfer_matrix.size()[0]))
-        self.channel_transfer_matrix_fixed = transfer_matrix.cuda()
+        self.channel_transfer_matrix_fixed = transfer_matrix.to(device)
         self.domain_filter = FIR_convolution(FIR_n, FIR_order)
 
     def forward(self, input_data):
@@ -366,7 +366,7 @@ class ShallowNetFeatureExtractor(nn.Module):
             init.zeros_(self.bnorm.bias)
 
     def forward(self, x):
-        x = x.type(torch.cuda.FloatTensor)
+        # x = x.type(torch.cuda.FloatTensor)
         x = x.permute(0, 2, 3, 1)
         # 定义前向传播
         features = self.feature_extractor(x)
@@ -534,7 +534,6 @@ class DeepNetFeatureExtractor(nn.Sequential):
 
     def forward(self, input_data):
         # Define the forward pass
-        input_data = input_data.type(torch.cuda.FloatTensor)
         input_data = input_data.permute(0, 2, 3, 1)
         features = self.feature_extractor(input_data)
         # print(features.shape)
@@ -668,7 +667,6 @@ class InceptionEEGFeatureExtractor(nn.Module):
         self.__hidden_len__ = __hidden_feature__.shape[1] * __hidden_feature__.shape[2] * __hidden_feature__.shape[3]
 
     def forward(self, input_data):
-        input_data = input_data.type(torch.cuda.FloatTensor)
         feature = self.feature(input_data)
         return feature
 
@@ -928,8 +926,6 @@ class EEGSymFeatureExtractor(nn.Module):
         )
 
     def forward(self, input_data):
-        input_data = input_data.type(torch.cuda.FloatTensor)
-        torch.cuda.empty_cache()
         output = self.sym_layer(input_data)
         torch.cuda.empty_cache()
         output = self.Block1(output)

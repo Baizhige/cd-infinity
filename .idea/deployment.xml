@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="root@10.7.88.10:30076 password" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="chengxuanqin21@login.hpc.xjtlu.edu.cn:22 password" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
     <option name="confirmBeforeUploading" value="false" />
     <serverData>
-      <paths name="root@10.7.88.10:30076 password">
+      <paths name="chengxuanqin21@login.hpc.xjtlu.edu.cn:22 password">
         <serverdata>
           <mappings>
-            <mapping deploy="/RY_Chengxuan_Qin/tmp/project_202209_Cross_Device_DANN" local="$PROJECT_DIR$" />
+            <mapping deploy="/science_works/tmp/project_202209_Cross_Device_DANN" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

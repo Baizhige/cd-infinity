@@ -3,11 +3,10 @@ import torch.backends.cudnn as cudnn
 import torch.utils.data
 from .data_loader_npy import EEGDataSet
 
-def test(test_list, torch_model, domain, start=0,num_channel=62):
+def test(test_list, torch_model, domain, start=0,num_channel=62, device='cuda'):
 
     data_root = os.path.join(os.path.pardir,os.path.pardir,"EEGData")
     model_root = "models"
-    cuda = True
     cudnn.benchmark = True
     batch_size = 64
     """load data"""
@@ -36,8 +35,8 @@ def test(test_list, torch_model, domain, start=0,num_channel=62):
     else:
         my_net = torch_model.eval()
 
-    if cuda:
-        my_net = my_net.cuda()
+
+    my_net = my_net.to(device)
 
     len_dataloader = len(dataloader)
     data_target_iter = iter(dataloader)
@@ -48,13 +47,13 @@ def test(test_list, torch_model, domain, start=0,num_channel=62):
     while i < len_dataloader:
 
         # test model using target data
-        data_target = data_target_iter.next()
+        data_target = next(data_target_iter)
         t_eeg, t_subject, t_label = data_target
         batch_size = len(t_label)
 
-        if cuda:
-            t_eeg = t_eeg.cuda()
-            t_label = t_label.cuda()
+
+        t_eeg = t_eeg.to(device)
+        t_label = t_label.to(device)
 
         class_output, _, _, _ = my_net(input_data=t_eeg, domain=domain, alpha=0)
 

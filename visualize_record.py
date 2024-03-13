@@ -6,6 +6,7 @@ import matplotlib.ticker as mticker
 import matplotlib.font_manager as font_manager
 
 
+
 def print_metric(df):
     # 检查第0列是否为Baseline
     if df.columns[0] != 'Baseline':
@@ -19,6 +20,10 @@ def print_metric(df):
     for method in df.columns[1:]:
         # 找到method在哪些task上超越了Baseline
         outperform_tasks = df[df[method] > df['Baseline']].index.tolist()
+        # 找到method在哪些task上fail Baseline
+
+        no_outperform_tasks = df[df[method] <= df['Baseline']].index.tolist()
+
 
         # 计算超越Baseline的task数量
         num_outperform = len(outperform_tasks)
@@ -27,71 +32,9 @@ def print_metric(df):
         tasks_formatted = ', '.join(outperform_tasks)
         if num_outperform > 0:
             print(f"{method} ({num_outperform}/{total_tasks}) outperforms baseline on {tasks_formatted}.")
+        print(no_outperform_tasks)
 
-# 设置字体
-path = '/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman.ttf'
-prop = font_manager.FontProperties(fname=path)
-plt.rcParams['font.family'] = prop.get_name()
-def visualize_record(methods_list: List[str], tasks_list: List[str], selected_backbone: str, selected_metric: str):
-    # 用于存储提取的数据
-    data = {}
-
-    # 遍历所有方法，读取相应的CSV文件并提取所需数据
-    for method in methods_list:
-        file_name = os.path.join("record",f"comparison_study_{method}.csv")
-        if os.path.exists(file_name):
-            df = pd.read_csv(file_name)
-            for task in tasks_list:
-                # 构建筛选条件
-                filter_condition = df['Cache Prefix'].str.contains(f'{method}_{selected_backbone}_{task}')
-                # 提取指定的指标数据
-                # print(filter_condition)
-                filtered_data = df.loc[filter_condition, selected_metric].str.extract(r'([0-9.]+)').astype(float)
-                # 存储数据
-                # 存储平均值数据
-                if not filtered_data.empty:
-                    data[(method, task)] = filtered_data.iloc[0, 0]
-                else:
-                    data[(method, task)] = None
-
-    # 将数据转换为DataFrame以便于绘图
-
-    plot_data = pd.DataFrame(data.values(), index=pd.MultiIndex.from_tuples(data.keys()), columns=[selected_metric])
-    print(plot_data)
-    plot_data = plot_data.unstack().T
-    # 调整列的顺序以匹配methods_list的顺序
-    plot_data = plot_data[methods_list]
-
-    # 修改X轴标签只包含任务名称
-    plot_data.index = [x[1] for x in plot_data.index]  # 只保留任务名称
-    print_metric(plot_data)
-    # 绘制分组柱状图
-    fig, ax = plt.subplots(figsize=(10, 6))
-    plot_data.plot(kind='bar', ax=ax)
-
-    # 设置y轴主刻度
-    ax.set_ylim(0.5, 1)
-
-    ax.set_ylabel(selected_metric, fontname='Times New Roman')
-    ax.yaxis.set_major_locator(mticker.MaxNLocator(integer=True))
-
-    # 设置y轴次刻度
-    ax.yaxis.set_minor_locator(mticker.AutoMinorLocator())
-
-    # 设置网格线（仅主刻度）
-    ax.grid(axis='y')
-
-    # 设置X轴标签倾斜
-    plt.xticks(rotation=90)
-
-    # 设置字体为 Times New Roman
-    for label in (ax.get_xticklabels() + ax.get_yticklabels()):
-        label.set_fontname('Times New Roman')
-
-    # 保存图片
-    plt.savefig(os.path.join('figures','comparison_chart.png'), dpi=300, bbox_inches='tight')
-
-
+plt.rc('font', family='Times New Roman')
 def visualize_record_anybackbone(methods_list: List[str], tasks_list: List[str], selected_backbones: List[str], selected_metric: str):
     # 用于存储提取的数据
     data = {}
@@ -137,7 +80,7 @@ def visualize_record_anybackbone(methods_list: List[str], tasks_list: List[str],
             # 绘制子图
             backbone_data = backbone_data[methods_list]
             print_metric(backbone_data)
-            backbone_data.plot(kind='bar', ax=ax, legend=False)  # 只在第一个子图显示图例
+            backbone_data.plot(kind='bar', ax=ax, legend=False, colormap='rainbow', linewidth=1)  # 只在第一个子图显示图例
 
         # 设置子图的标题为backbone的名称
         ax.set_title(backbone)
@@ -147,7 +90,7 @@ def visualize_record_anybackbone(methods_list: List[str], tasks_list: List[str],
             ax.set_ylim(0.5, 0.85)
         else:
             ax.set_ylim(0.5, 0.85)
-        ax.set_ylabel(selected_metric, fontname='Times New Roman')
+        # ax.set_ylabel(selected_metric, fontname='Times New Roman')
         ax.yaxis.set_major_locator(mticker.MaxNLocator(integer=True))
 
         # 设置y轴次刻度
@@ -160,8 +103,8 @@ def visualize_record_anybackbone(methods_list: List[str], tasks_list: List[str],
         ax.tick_params(axis='x', rotation=90)
 
         # 设置字体为 Times New Roman
-        for label in (ax.get_xticklabels() + ax.get_yticklabels()):
-            label.set_fontname('Times New Roman')
+        #for label in (ax.get_xticklabels() + ax.get_yticklabels()):
+        #    label.set_fontname('Times New Roman')
 
     # 调整子图间距
     plt.tight_layout()
@@ -173,7 +116,7 @@ def visualize_record_anybackbone(methods_list: List[str], tasks_list: List[str],
         fig.legend(handles, labels, loc='upper right',ncol=4)
 
     # 保存图片
-    plt.savefig(os.path.join('figures', 'comparison_chart.png'), dpi=300, bbox_inches='tight')
+    plt.savefig(os.path.join('figures', 'ablation_chart.png'), dpi=300, bbox_inches='tight')
 # Example usage
 
 tasks_list = ['BCICIV2AToMengExp3',
@@ -198,4 +141,6 @@ backbones_list = ['EEGNet',
                   'DeepConvNet',
                   'InceptionEEG']
 # visualize_record(methods_list=["Baseline", "EA","RA","DDC","DeepCoral","EEG_Infinity003"], tasks_list=tasks_list, selected_backbone="EEGNet", selected_metric="Target Domain Test Accuracy")
-visualize_record_anybackbone(methods_list=["Baseline","DDC","DeepCoral","DANN","DANNWass", "EEG_Infinity003","EEG_Infinity005Wass"], tasks_list=tasks_list, selected_backbones=backbones_list, selected_metric="Target Domain Test Accuracy")
+# visualize_record_anybackbone(methods_list=["Baseline","DDC","DeepCoral","DANN","DANNWass", "EEG_Infinity003","EEG_Infinity005Wass"], tasks_list=tasks_list, selected_backbones=backbones_list, selected_metric="Target Domain Test Accuracy")
+# visualize_record_anybackbone(methods_list=["Baseline","DDC","DeepCoral","DANN","DANNWass","EEG_Infinity005Wass"], tasks_list=tasks_list, selected_backbones=backbones_list, selected_metric="Target Domain Test Accuracy")
+visualize_record_anybackbone(methods_list=["Baseline","EEG_Infinity003","EEG_Infinity004","EEG_Infinity005Wass"], tasks_list=tasks_list, selected_backbones=backbones_list, selected_metric="Target Domain Test Accuracy")
