@@ -22,13 +22,7 @@ def run_script(script_path, work_dir, cmd_args=[]):
     # 恢复原工作目录
     os.chdir(current_dir)
 
-tasks_list = ['BCICIV2AToMengExp3',
-              'BCICIV2AToMengExp12',
-              'BCICIV2AToPhysioNetMI',
-
-              'MengExp3ToBCICIV2A',
-              'MengExp3ToMengExp12',
-              'MengExp3ToPhysioNetMI',
+tasks_list = ['MengExp3ToPhysioNetMI',
 
               'MengExp12ToBCICIV2A',
               'MengExp12ToMengExp3',

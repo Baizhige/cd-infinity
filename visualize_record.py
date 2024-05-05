@@ -87,9 +87,9 @@ def visualize_record_anybackbone(methods_list: List[str], tasks_list: List[str],
 
         # 设置y轴主刻度
         if i==0:
-            ax.set_ylim(0.5, 0.85)
+            ax.set_ylim(0.1, 0.85)
         else:
-            ax.set_ylim(0.5, 0.85)
+            ax.set_ylim(0.1, 0.85)
         # ax.set_ylabel(selected_metric, fontname='Times New Roman')
         ax.yaxis.set_major_locator(mticker.MaxNLocator(integer=True))
 
@@ -116,7 +116,7 @@ def visualize_record_anybackbone(methods_list: List[str], tasks_list: List[str],
         fig.legend(handles, labels, loc='upper right',ncol=4)
 
     # 保存图片
-    plt.savefig(os.path.join('figures', 'ablation_chart.png'), dpi=300, bbox_inches='tight')
+    plt.savefig(os.path.join('figures', 'comparison_chart.png'), dpi=300, bbox_inches='tight')
 # Example usage
 
 tasks_list = ['BCICIV2AToMengExp3',
@@ -142,5 +142,5 @@ backbones_list = ['EEGNet',
                   'InceptionEEG']
 # visualize_record(methods_list=["Baseline", "EA","RA","DDC","DeepCoral","EEG_Infinity003"], tasks_list=tasks_list, selected_backbone="EEGNet", selected_metric="Target Domain Test Accuracy")
 # visualize_record_anybackbone(methods_list=["Baseline","DDC","DeepCoral","DANN","DANNWass", "EEG_Infinity003","EEG_Infinity005Wass"], tasks_list=tasks_list, selected_backbones=backbones_list, selected_metric="Target Domain Test Accuracy")
-# visualize_record_anybackbone(methods_list=["Baseline","DDC","DeepCoral","DANN","DANNWass","EEG_Infinity005Wass"], tasks_list=tasks_list, selected_backbones=backbones_list, selected_metric="Target Domain Test Accuracy")
-visualize_record_anybackbone(methods_list=["Baseline","EEG_Infinity003","EEG_Infinity004","EEG_Infinity005Wass"], tasks_list=tasks_list, selected_backbones=backbones_list, selected_metric="Target Domain Test Accuracy")
+visualize_record_anybackbone(methods_list=["Baseline","DDC","DeepCoral","DANN","DANNWass","EEG_Infinity005Wass"], tasks_list=tasks_list, selected_backbones=backbones_list, selected_metric="Target Domain Test Accuracy")
+# visualize_record_anybackbone(methods_list=["Baseline","EEG_Infinity003","EEG_Infinity004","EEG_Infinity005Wass", "EEG_Infinity006Wass"], tasks_list=tasks_list, selected_backbones=backbones_list, selected_metric="Target Domain Test Accuracy")

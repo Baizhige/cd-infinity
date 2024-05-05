@@ -162,4 +162,4 @@ cross_id = 0
 # source_SFB, source_FFB, target_SFB, target_FFB = get_Para("EEG_Infinity005Wass", cross_id, task="MengExp12ToMengExp3")
 # draw_model_parameter(source_SFB, target_SFB, source_FFB, target_FFB)
 
-transform_data("EEG_Infinity005Wass", cross_id, task="MengExp12ToMengExp3")
+transform_data("EEG_Infinity006Wass", cross_id, task="MengExp12ToMengExp3")

@@ -90,7 +90,7 @@ def process_method(method, cross_id, task):
 # 定义模型和交叉验证ID
 cross_id = 0
 # methods_list = ["Baseline", "DDC", "DeepCoral", "DANN", "DANNWass", "EEG_Infinity003", "EEG_Infinity004", "EEG_Infinity005Wass"]
-methods_list = ["Baseline", "EEG_Infinity005Wass"]
+methods_list = ["Baseline", "EEG_Infinity006Wass"]
 
 # 对每个方法执行处理
 for method in methods_list:
