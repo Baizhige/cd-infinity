@@ -16,15 +16,15 @@ def get_alignment_head_parameters(cache_suffix, epoch, i, targetorsource, len_da
 
 
 def get_scalars_from_log(cache_suffix, scalar_name='Target Validation Set Accuracy', path_root='logs'):
-    # 初始化向量来存储scalar的值
+    # container
     err_t_label_values = []
 
-    # 构建正确的路径
+    # get path
     log_path = os.path.join(path_root, cache_suffix + '_Cross_0')
 
-    # 设置EventAccumulator
+    # set EventAccumulator
     event_acc = EventAccumulator(log_path)
-    event_acc.Reload()  # 读取事件文件
+    event_acc.Reload()
     events = event_acc.Scalars(scalar_name)
     for event in events:
         err_t_label_values.append(event.value)
@@ -33,22 +33,17 @@ def get_scalars_from_log(cache_suffix, scalar_name='Target Validation Set Accura
 
 
 
-cache_suffix = 'parser_test2'  # 需要根据您的设置调整
-num_epochs =  200  # 假设有10个epochs
-len_dataloader = 90  # 假设每个epoch有93次迭代
+cache_suffix = 'parser_test2'  #
+num_epochs =  200
+len_dataloader = 90
 
-# 从TensorBoard日志中读取数据
-# # target_val_acc = get_scalars_from_log(cache_suffix, 'Target Validation Set Accuracy')
-# target_train_loss = get_scalars_from_log(cache_suffix, 'err_t_label')
-
-# 准备动画的绘图
-fig, ax = plt.subplots(2, 2, figsize=(10, 10))  # 创建一个2x2的图表
+fig, ax = plt.subplots(2, 2, figsize=(10, 10))
 
 def update(frame):
     print(f"process:{100*frame/(num_epochs*len_dataloader)}%")
     epoch, i = divmod(frame, len_dataloader)
 
-    # 加载alignment head参数
+    # load alignment head parameters
     source_channel_transfer_matrix, source_domain_filter_conv_weight = get_alignment_head_parameters(cache_suffix,
                                                                                                      epoch, i, 'source')
     target_channel_transfer_matrix, target_domain_filter_conv_weight = get_alignment_head_parameters(cache_suffix,
@@ -72,15 +67,6 @@ def update(frame):
     ax[1, 0].set_title('Source Domain Filter Conv Weight')
     ax[1, 1].set_title('Target Domain Filter Conv Weight')
 
-# writer = FFMpegWriter(fps=20, metadata=dict(artist='Me'), bitrate=1800)
-#
-# total_frames = num_epochs * len_dataloader
-# ani = FuncAnimation(fig, update, frames=total_frames, repeat=False)
-# plt.tight_layout()
-# ani.save(os.path.join('..', 'animation','alignment_head_animation4.mp4'), writer=writer)
-
 source_channel_transfer_matrix, source_domain_filter_conv_weight = get_alignment_head_parameters(cache_suffix,
                                                                                                      10, 1, 'target', len_dataloader=90)
 source_channel_transfer_matrix = source_channel_transfer_matrix.cpu().detach().numpy()
-
-aa= 0

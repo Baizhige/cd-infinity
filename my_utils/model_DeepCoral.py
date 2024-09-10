@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.utils.data
 
+
 def euclidean_dist(x, y):
     """
     Args:
@@ -12,27 +13,31 @@ def euclidean_dist(x, y):
     """
 
     m, n = x.size(0), y.size(0)
-    # xx经过pow()方法对每单个数据进行二次方操作后，在axis=1 方向（横向，就是第一列向最后一列的方向）加和，此时xx的shape为(m, 1)，经过expand()方法，扩展n-1次，此时xx的shape为(m, n)
+    # After applying the pow() method to square each individual data point, sum along axis=1 (horizontally, from the first column to the last column). At this point, the shape of xx is (m, 1). After using the expand() method, it is expanded n-1 times, and the shape of xx becomes (m, n).
     xx = torch.pow(x, 2).sum(1, keepdim=True).expand(m, n)
-    # yy会在最后进行转置的操作
+    # yy will be transposed at the end
     yy = torch.pow(y, 2).sum(1, keepdim=True).expand(n, m).t()
     dist = xx + yy
-    # torch.addmm(beta=1, input, alpha=1, mat1, mat2, out=None)，这行表示的意思是dist - 2 * x * yT
+    # torch.addmm(beta=1, input, alpha=1, mat1, mat2, out=None), this line represents the operation dist - 2 * x * yT
     dist.addmm_(1, -2, x, y.t())
-    # clamp()函数可以限定dist内元素的最大最小范围，dist最后开方，得到样本之间的距离矩阵
+    # The clamp() function can restrict the elements in dist to a specified minimum and maximum range. Finally, dist is square-rooted to obtain the distance matrix between samples.
     dist = dist.clamp(min=1e-12).sqrt()  # for numerical stability
-    dist = torch.sum(dist)  # 所有距离加和
+    dist = torch.sum(dist)  # Sum all the distances
     return dist
 
-class depthwise_separable_conv(nn.Module):  # 深度可分离卷积
+
+class depthwise_separable_conv(nn.Module):  # Depthwise separable convolution
     def __init__(self, nin, nout, kernel_size):
         super(depthwise_separable_conv, self).__init__()
         self.depthwise = nn.Conv2d(nin, nout, kernel_size=(1, kernel_size), padding=0, groups=nin)
         self.pointwise = nn.Conv2d(nout, nout, kernel_size=1)
+
     def forward(self, x):
         out = self.depthwise(x)
         out = self.pointwise(out)
         return out
+
+
 class DeepCoral(nn.Module):  # Net4: DeepCoral
     def __init__(self, transfer_matrix):
         super(DeepCoral, self).__init__()

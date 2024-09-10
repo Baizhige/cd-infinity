@@ -16,20 +16,20 @@ class EEG_Infinity(nn.Module):
         self.num_classes = 2
         self.num_channels = transfer_matrix_source.size()[0]
 
-        # 定义了源域alignment heads
+        # Defined the source domain alignment heads
         self.alignment_head_source = Alignment_head(transfer_matrix=transfer_matrix_source,
                                                     FIR_order=FIR_order, FIR_n=FIR_n)
         self.alignment_head_target = Alignment_head(transfer_matrix=transfer_matrix_target,
                                                     FIR_order=FIR_order, FIR_n=FIR_n)
-        # 冻结源域的 channel_transfer_matrix
+        # Freeze the source domain's channel_transfer_matrix
         self.alignment_head_source.frozen_transfer_matrix()
 
-        # ChannelNorm()层定义，防止BN层的均值和方差乱飘
+        # Definition of the ChannelNorm() layer to prevent the mean and variance of the BN layer from drifting
         self.channel_norm = ChannelNorm()
 
-        # 定义了特征提取器
+        # Defined the feature extractor
         self.feature = Feature_endocer_EEGNet()
-        # 定义了特征分类器
+        # Defined the feature classifier
         self.class_classifier = nn.Sequential()
         self.class_classifier.add_module('c_fc1', nn.Linear(self.feature_map_size, 128))
         self.class_classifier.add_module('c_bn1', nn.BatchNorm1d(128))
@@ -39,7 +39,7 @@ class EEG_Infinity(nn.Module):
         self.class_classifier.add_module('c_bn2', nn.BatchNorm1d(64))
         self.class_classifier.add_module('c_relu2', nn.ReLU(True))
         self.class_classifier.add_module('c_fc3', nn.Linear(64, self.num_classes))
-        # 定义了领域分类器
+        # Defined the domain classifier
         self.domain_classifier = nn.Sequential()
         self.domain_classifier.add_module('c_fc1', nn.Linear(self.feature_map_size, 128))
         self.domain_classifier.add_module('c_bn1', nn.BatchNorm1d(128))
@@ -115,21 +115,21 @@ class ChannelNorm(nn.Module):
 class FIR_convolution(nn.Module):
     def __init__(self, FIR_n, FIR_order):
         super(FIR_convolution, self).__init__()
-        # 创建一个2D卷积层，用于实现FIR滤波器
+        # Create a 2D convolutional layer to implement the FIR filter
         self.FIR_order = FIR_order
         self.conv = nn.Conv2d(1, FIR_n, (1, FIR_order), padding=0, bias=False)
 
-        # 初始化参数，避免过于极端的滤波效果
+        # Initialize parameters to avoid extreme filtering effects
         self.initialize_parameters()
 
     def forward(self, x):
-        # 添加零填充
+        # Add zero padding
         x_padded = F.pad(x, (int(self.conv.kernel_size[1] / 2), int(self.conv.kernel_size[1] / 2), 0, 0), mode='constant', value=0)
-        # 应用卷积（使用归一化的权重）
+        # Apply convolution (using normalized weights)
         return F.conv2d(x_padded, self.conv.weight, padding=0)
 
     def initialize_parameters(self):
-        """ 初始化滤波器的参数，使每个参数的值为 1/FIR_order """
+        """ Initialize the filter parameters so that each parameter value is 1/FIR_order """
         with torch.no_grad():
             self.conv.weight.fill_(1.0 / self.FIR_order)
 class Alignment_head(nn.Module):
@@ -150,26 +150,26 @@ class Alignment_head(nn.Module):
     def custom_zero_grad(self):
         for param in [self.channel_transfer_matrix, self.domain_filter.conv.weight]:
             if param.grad is None:
-                # 初始化梯度为零
+                # Initialize gradients to zero
                 param.grad = torch.zeros_like(param.data)
             else:
                 param.grad.zero_()
 
 
     def get_magnitude_loss(self, alpha=0.5):
-        # 确保 channel_transfer_matrix 的每行之和为 1
+        # Ensure that the sum of each row in channel_transfer_matrix is 1
         # row_sums = torch.sum(self.channel_transfer_matrix, dim=1)
         # loss_matrix = torch.sum((row_sums - 1) ** 2)
 
-        # 确保 domain_filter 的每个卷积核参数之和为 1
+        # Ensure that the sum of each convolutional kernel parameter in domain_filter is 1
         filter_sums = self.domain_filter.conv.weight.sum(dim=(1, 2, 3))
         loss_filter = torch.sum((filter_sums - 1) ** 2)
 
-        # 返回两部分损失的总和
+        # Return the sum of the two parts of the loss
         return loss_filter*1
 
     def frozen_transfer_matrix(self):
-        # 冻结 channel_transfer_matrix 参数
+        # Freeze the channel_transfer_matrix parameters
         self.channel_transfer_matrix.requires_grad = False
 class Feature_endocer_EEGNet(nn.Module):
     def __init__(self):

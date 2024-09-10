@@ -7,7 +7,6 @@ import itertools
 from torch.optim.lr_scheduler import _LRScheduler
 def EEG_wearing_transform(inputEEG,d,sigma=0.1,channel_number=64,max_bias=0.5,min_bias=-0.5):
     rand=torch.normal(0, sigma, (channel_number, channel_number))
-    # rand = torch.clamp(rand, min_bias, max_bias)
     T = rand*d
     for i in range(channel_number):
         T[i,i]=1
@@ -32,15 +31,14 @@ def channel_norm(input, channel=64):
     out = torch.div(A, B)
     return out
 
-# 绘制混淆矩阵
 def plot_confusion_matrix(cm, classes, normalize=False, title='Confusion matrix', cmap=plt.cm.Blues):
     '''
     This function prints and plots the confusion matrix.
     Normalization can be applied by setting `normalize=True`.
     Input
-    - cm : 计算出的混淆矩阵的值
-    - classes : 混淆矩阵中每一行每一列对应的列
-    - normalize : True:显示百分比, False:显示个数
+    - cm : The calculated value of the confusion matrix
+    - classes : The columns corresponding to each row and column in the confusion matrix
+    - normalize : True: display percentage, False: display number
     '''
     if normalize:
         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
@@ -55,17 +53,13 @@ def plot_confusion_matrix(cm, classes, normalize=False, title='Confusion matrix'
     plt.xticks(tick_marks, classes, rotation=90)
     plt.yticks(tick_marks, classes)
 
-    # 。。。。。。。。。。。。新增代码开始处。。。。。。。。。。。。。。。。
-    # x,y轴长度一致(问题1解决办法）
     plt.axis("equal")
-    # x轴处理一下，如果x轴或者y轴两边有空白的话(问题2解决办法）
-    ax = plt.gca()  # 获得当前axis
-    left, right = plt.xlim()  # 获得x轴最大最小值
+    ax = plt.gca()
+    left, right = plt.xlim()
     ax.spines['left'].set_position(('data', left))
     ax.spines['right'].set_position(('data', right))
     for edge_i in ['top', 'bottom', 'right', 'left']:
         ax.spines[edge_i].set_edgecolor("white")
-    # 。。。。。。。。。。。。新增代码结束处。。。。。。。。。。。。。。。。
 
     thresh = cm.max() / 2.
     for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
@@ -88,101 +82,97 @@ class CustomLRScheduler(_LRScheduler):
         super(CustomLRScheduler, self).__init__(optimizer, last_epoch, verbose)
 
     def get_lr(self):
-        # 当前的训练进度 p 是当前步骤数除以总步骤数
         p = self.last_epoch / self.total_steps
         lr = [self.mu / (1 + self.alpha * p) ** self.beta for base_lr in self.base_lrs]
         return lr
 
 
 def custom_ReLU_loss(d, d0=0.3, scale=3.0):
-    # 使用ReLU函数来定义损失
+
     loss = torch.relu(d - d0)
 
-    # 可选：将损失按比例缩放
     loss *= scale
 
     return loss
 
 def guassian_kernel(source, target, kernel_mul=2.0, kernel_num=5, fix_sigma=None):
     '''
-    将源域数据和目标域数据转化为核矩阵，即上文中的K
+    Convert source domain data and target domain data into kernel matrix, i.e. K in the above text
     Params:
-	    source: 源域数据（n * len(x))
-	    target: 目标域数据（m * len(y))
-	    kernel_mul:
-	    kernel_num: 取不同高斯核的数量
-	    fix_sigma: 不同高斯核的sigma值
-	Return:
-		sum(kernel_val): 多个核矩阵之和
+    source: source domain data (n * len(x))
+    target: target domain data (m * len(y))
+    kernel_mul:
+    kernel_num: the number of different Gaussian kernels
+    fix_sigma: sigma value of different Gaussian kernels
+    Return:
+    sum(kernel_val): the sum of multiple kernel matrices
     '''
-    n_samples = int(source.size()[0])+int(target.size()[0])# 求矩阵的行数，一般source和target的尺度是一样的，这样便于计算
-    total = torch.cat([source, target], dim=0)#将source,target按列方向合并
-    #将total复制（n+m）份
+    n_samples = int(source.size()[0])+int(target.size()[0])# Find the number of rows in the matrix. Generally, the scale of source and target is the same, which is convenient for calculation
+    total = torch.cat([source, target], dim=0) # Merge source and target in column direction
+    # Copy total (n+m) copies
     total0 = total.unsqueeze(0).expand(int(total.size(0)), int(total.size(0)), int(total.size(1)))
-    #将total的每一行都复制成（n+m）行，即每个数据都扩展成（n+m）份
+    # Copy each row of total into (n+m) rows, that is, each data is expanded into (n+m) copies
     total1 = total.unsqueeze(1).expand(int(total.size(0)), int(total.size(0)), int(total.size(1)))
-    #求任意两个数据之间的和，得到的矩阵中坐标（i,j）代表total中第i行数据和第j行数据之间的l2 distance(i==j时为0）
+    # Find the sum of any two data points. The coordinates (i, j) in the resulting matrix represent the l2 distance between the i-th row of data and the j-th row of data in total (0 when i==j)
     L2_distance = ((total0-total1)**2).sum(2)
-    #调整高斯核函数的sigma值
+    # Adjust the sigma value of the Gaussian kernel function
     if fix_sigma:
         bandwidth = fix_sigma
     else:
         bandwidth = torch.sum(L2_distance.data) / (n_samples**2-n_samples)
-    #以fix_sigma为中值，以kernel_mul为倍数取kernel_num个bandwidth值（比如fix_sigma为1时，得到[0.25,0.5,1,2,4]
+    # Take fix_sigma as the median value and kernel_mul as the multiple to get kernel_num bandwidth values ​​(for example, when fix_sigma is 1, we get [0.25, 0.5, 1, 2, 4]
     bandwidth /= kernel_mul ** (kernel_num // 2)
     bandwidth_list = [bandwidth * (kernel_mul**i) for i in range(kernel_num)]
-    #高斯核函数的数学表达式
+    # Mathematical expression of Gaussian kernel function
     kernel_val = [torch.exp(-L2_distance / bandwidth_temp) for bandwidth_temp in bandwidth_list]
-    #得到最终的核矩阵
-    return sum(kernel_val)#/len(kernel_val)
+    # Get the final kernel matrix
+    return sum(kernel_val)
 
 def mmd_rbf(source, target, kernel_mul=2.0, kernel_num=5, fix_sigma=None):
     '''
-    计算源域数据和目标域数据的MMD距离
+    Calculate the MMD distance between source domain data and target domain data
     Params:
-	    source: 源域数据（n * len(x))
-	    target: 目标域数据（m * len(y))
-	    kernel_mul:
-	    kernel_num: 取不同高斯核的数量
-	    fix_sigma: 不同高斯核的sigma值
-	Return:
-		loss: MMD loss
+    source: source domain data (n * len(x))
+    target: target domain data (m * len(y))
+    kernel_mul:
+    kernel_num: the number of different Gaussian kernels
+    fix_sigma: sigma values of different Gaussian kernels
+    Return:
+    loss: MMD loss
     '''
-    batch_size = int(source.size()[0])#一般默认为源域和目标域的batchsize相同
+    batch_size = int(source.size()[0])
     kernels = guassian_kernel(source, target,
         kernel_mul=kernel_mul, kernel_num=kernel_num, fix_sigma=fix_sigma)
-    #根据式（3）将核矩阵分成4部分
+
     XX = kernels[:batch_size, :batch_size]
     YY = kernels[batch_size:, batch_size:]
     XY = kernels[:batch_size, batch_size:]
     YX = kernels[batch_size:, :batch_size]
     loss = torch.mean(XX + YY - XY -YX)
-    return loss#因为一般都是n==m，所以L矩阵一般不加入计算
+    return loss
 
 
 def cov_loss(tensorA, tensorB):
     """
-    计算两组 tensor（tensorA 和 tensorB）的平均协方差矩阵之间的 L2 距离。
+    Calculate the L2 distance between the mean covariance matrices of two sets of tensors (tensorA and tensorB).
 
-    tensorA 和 tensorB 都是形状为 (batchsize, 1, c, T) 的 tensor。
-    每个 tensor 包含 batchsize 个样本，每个样本是一个 c 行 T 列的矩阵。
+    tensorA and tensorB are both tensors of shape (batchsize, 1, c, T).
+    Each tensor contains batchsize samples, and each sample is a matrix with c rows and T columns.
     """
 
     def compute_mean_covariance(input_tensor):
-        # 删除大小为 1 的维度，使 tensor 形状变为 (batchsize, c, T)
+        # Delete the dimension of size 1 to make the tensor shape become (batchsize, c, T)
         input_tensor = input_tensor.squeeze(1)
         norms = torch.norm(input_tensor, p=2, dim=-1, keepdim=True)
         input_tensor_normalized = input_tensor / norms
         covariance_matrices = torch.matmul(input_tensor_normalized, input_tensor_normalized.transpose(1, 2))
-        # 计算平均协方差矩阵
+
         mean_covariance = covariance_matrices.mean(dim=0)
         return mean_covariance.squeeze()
 
-    # 计算两个 tensor 的平均协方差矩阵
     mean_covariance_A = compute_mean_covariance(tensorA)
     mean_covariance_B = compute_mean_covariance(tensorB)
 
-    # 计算 L2 距离作为损失
     loss = torch.norm(mean_covariance_A - mean_covariance_B, p=2)
     return loss
 
@@ -268,9 +258,9 @@ def observation_loss(T_N_A, T_N_B, T_F_A_R, T_F_B_R, T_F_A_GT_inv, T_F_B_GT):
 
 def print_gradients(model):
     """
-    打印 nn.Module 所有参数的梯度。
+    Print the gradients of all parameters of nn.Module.
 
-    :param model: nn.Module 的实例
+    :param model: instance of nn.Module
     """
     for name, parameter in model.named_parameters():
         if parameter.grad is not None:

@@ -126,16 +126,3 @@ def solve_T_numpy(S_a, S_b):
     return None
 
 
-# Example usage
-# X_a = torch.tensor([...])  # Replace with your data
-# X_b = torch.tensor([...])  # Replace with your data
-
-# S_a = compute_average_cov_matrix(X_a)
-# S_b = compute_average_cov_matrix(X_b)
-
-# T = solve_T(S_a, S_b)
-# if T is not None:
-#     print("Found a solution for T.")
-# else:
-#     print("No solution found for T.")
-

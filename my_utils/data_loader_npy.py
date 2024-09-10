@@ -6,27 +6,28 @@ import torch
 
 def cov_loss(tensorA, tensorB):
     """
-    计算两组 tensor（tensorA 和 tensorB）的平均协方差矩阵之间的 L2 距离。
+        Calculate the L2 distance between the average covariance matrices of two tensors (tensorA and tensorB).
 
-    tensorA 和 tensorB 都是形状为 (batchsize, 1, c, T) 的 tensor。
-    每个 tensor 包含 batchsize 个样本，每个样本是一个 c 行 T 列的矩阵。
+        tensorA and tensorB are tensors with the shape (batchsize, 1, c, T).
+        Each tensor contains batchsize samples, and each sample is a matrix with c rows and T columns.
     """
 
     def compute_mean_covariance(input_tensor):
-        # 删除大小为 1 的维度，使 tensor 形状变为 (batchsize, c, T)
+        # Remove dimensions of size 1, changing the tensor shape to (batchsize, c, T)
         input_tensor = input_tensor.squeeze(1)
         norms = torch.norm(input_tensor, p=2, dim=-1, keepdim=True)
         input_tensor_normalized = input_tensor / norms
         covariance_matrices = torch.matmul(input_tensor_normalized, input_tensor_normalized.transpose(1, 2))
-        # 计算平均协方差矩阵
+        # Calculate the average covariance matrix
+
         mean_covariance = covariance_matrices.mean(dim=0)
         return mean_covariance.squeeze()
 
-    # 计算两个 tensor 的平均协方差矩阵
+    # Calculate the average covariance matrix of the two tensors
     mean_covariance_A = compute_mean_covariance(tensorA)
     mean_covariance_B = compute_mean_covariance(tensorB)
 
-    # 计算 L2 距离作为损失
+    # Calculate the L2 distance as the loss
     loss = torch.norm(mean_covariance_A - mean_covariance_B, p=2)
     return loss
 
@@ -136,29 +137,20 @@ if __name__ == "__main__":
 
 
     def compute_mean_covariance(input_tensor):
-        # 删除大小为 1 的维度，使 tensor 形状变为 (batchsize, c, T)
         input_tensor = input_tensor.squeeze(1)
         norms = torch.norm(input_tensor, p=2, dim=-1, keepdim=True)
         input_tensor_normalized = input_tensor / norms
         covariance_matrices = torch.matmul(input_tensor_normalized, input_tensor_normalized.transpose(1, 2))
-        # 计算平均协方差矩阵
         mean_covariance = covariance_matrices.mean(dim=0)
         return mean_covariance.squeeze()
 
 
-    # AA = compute_mean_covariance(batch1_sample_source).detach().cpu().numpy()
-    # print(AA)
-    # BB = 0
-    print("A")
     loss_ss = cov_loss(batch1_sample_source, batch2_sample_source)  # source-source loss
-    print("A")
     loss_tt = cov_loss(batch1_sample_target, batch2_sample_target)  # target-target loss
-    print("A")
     loss_st1 = cov_loss(batch1_sample_source, batch1_sample_target)  # source-target loss for batch 1
-    print("A")
     loss_st2 = cov_loss(batch2_sample_source, batch2_sample_target)  # source-target loss for batch 2
 
-    # 打印损失
+    # Print the loss
     print(f"Source-Source Loss: {loss_ss.item():.4f}")
     print(f"Target-Target Loss: {loss_tt.item():.4f}")
     print(f"Source-Target Loss (Batch 1): {loss_st1.item():.4f}")

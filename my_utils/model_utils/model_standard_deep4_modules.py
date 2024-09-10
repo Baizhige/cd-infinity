@@ -124,12 +124,6 @@ class IntermediateOutputWrapper(nn.Module):
         list of module names for which activation should be returned
     model : model object
         network model
-
-    Examples
-    --------
-    >>> model = Deep4Net()
-    >>> select_modules = ['conv_spat','conv_2','conv_3','conv_4'] # Specify intermediate outputs
-    >>> model_pert = IntermediateOutputWrapper(select_modules,model) # Wrap model
     """
 
     def __init__(self, to_select, model):

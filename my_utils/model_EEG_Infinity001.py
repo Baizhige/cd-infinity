@@ -28,15 +28,14 @@ class DANN_EEG(nn.Module):
         self.feature_map_size = 192
         self.num_classes = 2
         self.num_channels = transfer_matrix_source.size()[0]
-
-        # 定义了源域alignment heads
+        # Defined the source domain alignment heads
         self.alignment_head_source = Alignment_head(transfer_matrix=transfer_matrix_source, k=k_source, dc=dc_source,
                                                     FIR_order=FIR_order, FIR_n=FIR_n)
         self.alignment_head_target = Alignment_head(transfer_matrix=transfer_matrix_target, k=k_target, dc=dc_target,
                                                     FIR_order=FIR_order, FIR_n=FIR_n)
-        # 定义了特征提取器
+        # Defined the feature extractor
         self.feature = Feature_endocer_EEGNet()
-        # 定义了特征分类器
+        # Defined the feature classifier
         self.class_classifier = nn.Sequential()
         self.class_classifier.add_module('c_fc1', nn.Linear(self.feature_map_size, 128))
         self.class_classifier.add_module('c_bn1', nn.BatchNorm1d(128))
@@ -46,7 +45,7 @@ class DANN_EEG(nn.Module):
         self.class_classifier.add_module('c_bn2', nn.BatchNorm1d(64))
         self.class_classifier.add_module('c_relu2', nn.ReLU(True))
         self.class_classifier.add_module('c_fc3', nn.Linear(64, self.num_classes))
-        # 定义了领域分类器
+        # Defined the domain classifier
         self.domain_classifier = nn.Sequential()
         self.domain_classifier.add_module('c_fc1', nn.Linear(self.feature_map_size, 128))
         self.domain_classifier.add_module('c_bn1', nn.BatchNorm1d(128))
@@ -116,21 +115,21 @@ class ChannelNorm(nn.Module):
 class FIR_convolution(nn.Module):
     def __init__(self, FIR_n, FIR_order):
         super(FIR_convolution, self).__init__()
-        # 创建一个2D卷积层，用于实现FIR滤波器
+        # Create a 2D convolutional layer to implement the FIR filter
         self.FIR_order = FIR_order
         self.conv = nn.Conv2d(1, FIR_n, (1, FIR_order), padding=0, bias=False)
 
-        # 初始化参数，避免过于极端的滤波效果
+        # Initialize parameters to avoid extreme filtering effects
         self.initialize_parameters()
 
     def forward(self, x):
-        # 添加零填充
+        # Add zero padding
         x_padded = F.pad(x, (int(self.conv.kernel_size[1] / 2), int(self.conv.kernel_size[1] / 2), 0, 0), mode='constant', value=0)
-        # 应用卷积（使用归一化的权重）
+        # Apply convolution (using normalized weights)
         return F.conv2d(x_padded, self.conv.weight, padding=0)
 
     def initialize_parameters(self):
-        """ 初始化滤波器的参数，使每个参数的值为 1/FIR_order """
+        """ Initialize the filter parameters so that each parameter value is 1/FIR_order """
         with torch.no_grad():
             self.conv.weight.fill_(1.0 / self.FIR_order)
 class Alignment_head(nn.Module):

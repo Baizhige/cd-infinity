@@ -8,27 +8,26 @@ import matplotlib.font_manager as font_manager
 
 
 def print_metric(df):
-    # 检查第0列是否为Baseline
+    # Check if column 0 is the Baseline
     if df.columns[0] != 'Baseline':
         print("Warning: The first column is not 'Baseline'.")
         return
 
-    # 获取总的task数量
     total_tasks = len(df)
 
-    # 遍历除了Baseline之外的每个method
+    # Traverse each method except Baseline
     for method in df.columns[1:]:
-        # 找到method在哪些task上超越了Baseline
+        # Find out on which tasks the method surpasses the baseline
         outperform_tasks = df[df[method] > df['Baseline']].index.tolist()
-        # 找到method在哪些task上fail Baseline
+        # Find out on which tasks the method fails Baseline
 
         no_outperform_tasks = df[df[method] <= df['Baseline']].index.tolist()
 
 
-        # 计算超越Baseline的task数量
+        # Calculate the number of tasks that exceed the Baseline
         num_outperform = len(outperform_tasks)
 
-        # 格式化并打印信息
+        # print
         tasks_formatted = ', '.join(outperform_tasks)
         if num_outperform > 0:
             print(f"{method} ({num_outperform}/{total_tasks}) outperforms baseline on {tasks_formatted}.")
@@ -36,10 +35,10 @@ def print_metric(df):
 
 plt.rc('font', family='Times New Roman')
 def visualize_record_anybackbone(methods_list: List[str], tasks_list: List[str], selected_backbones: List[str], selected_metric: str):
-    # 用于存储提取的数据
+    # container
     data = {}
 
-    # 遍历所有方法和backbones，读取相应的CSV文件并提取所需数据
+    # Traverse all methods and backbones, read the corresponding CSV file and extract the required data
     for method in methods_list:
         for backbone in selected_backbones:
             file_name = os.path.join("record", f"comparison_study_{method}.csv")
@@ -56,61 +55,47 @@ def visualize_record_anybackbone(methods_list: List[str], tasks_list: List[str],
                     else:
                         data[(method, task, backbone)] = None
 
-    # 将数据转换为DataFrame以便于绘图
     plot_data = pd.DataFrame(data.values(), index=pd.MultiIndex.from_tuples(data.keys()), columns=[selected_metric])
     plot_data = plot_data.unstack(level=-1)  # 将backbone提取为列
 
-    # 删除metric层级，保留backbone层级
+    # Delete the metric level and keep the backbone level
     plot_data = plot_data[selected_metric]
 
-    # 设置绘图布局
     fig, axes = plt.subplots(len(selected_backbones), 1, figsize=(5, 3 * len(selected_backbones)), sharex=True)
 
-    # 如果只有一个backbone，axes不是数组，这里进行处理
+    # If there is only one backbone, axes is not an array, so process it here
     if len(selected_backbones) == 1:
         axes = [axes]
 
-    # 绘制每个backbone的子图
     for i, backbone in enumerate(selected_backbones):
         ax = axes[i]
-        # 检查backbone是否存在于列中
         if backbone in plot_data.columns:
-            # 筛选特定backbone的数据
+            # Filter data for a specific backbone
             backbone_data = plot_data[backbone].unstack(level=0)
-            # 绘制子图
             backbone_data = backbone_data[methods_list]
             print_metric(backbone_data)
             backbone_data.plot(kind='bar', ax=ax, legend=False, colormap='rainbow', linewidth=1)  # 只在第一个子图显示图例
 
-        # 设置子图的标题为backbone的名称
         ax.set_title(backbone)
 
-        # 设置y轴主刻度
         if i==0:
             ax.set_ylim(0.1, 0.85)
         else:
             ax.set_ylim(0.1, 0.85)
-        # ax.set_ylabel(selected_metric, fontname='Times New Roman')
         ax.yaxis.set_major_locator(mticker.MaxNLocator(integer=True))
 
-        # 设置y轴次刻度
         ax.yaxis.set_minor_locator(mticker.AutoMinorLocator())
 
-        # 设置网格线（仅主刻度）
+
         ax.grid(axis='y')
 
-        # 设置X轴标签倾斜
         ax.tick_params(axis='x', rotation=90)
 
-        # 设置字体为 Times New Roman
-        #for label in (ax.get_xticklabels() + ax.get_yticklabels()):
-        #    label.set_fontname('Times New Roman')
 
-    # 调整子图间距
+
     plt.tight_layout()
     plt.subplots_adjust(left=0.05, right=0.95, top=0.93, bottom=0.05)
 
-    # 设置整体图例
     if len(selected_backbones) > 1:
         handles, labels = axes[0].get_legend_handles_labels()
         fig.legend(handles, labels, loc='upper right',ncol=4)

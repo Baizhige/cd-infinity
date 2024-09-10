@@ -29,12 +29,12 @@ class DANN_EEG(nn.Module):
         self.num_classes = 2
         self.num_channels = transfer_matrix_source.size()[0]
 
-        # 定义了源域alignment heads
+        # Defined the source domain alignment heads
         self.alignment_head_source = Alignment_head(transfer_matrix=transfer_matrix_source)
         self.alignment_head_target = Alignment_head(transfer_matrix=transfer_matrix_target)
-        # 定义了特征提取器
+        # Defined the feature extractor
         self.feature = Feature_endocer_EEGNet()
-        # 定义了特征分类器
+        # Defined the feature classifier
         self.class_classifier = nn.Sequential()
         self.class_classifier.add_module('c_fc1', nn.Linear(self.feature_map_size, 128))
         self.class_classifier.add_module('c_bn1', nn.BatchNorm1d(128))
@@ -44,7 +44,7 @@ class DANN_EEG(nn.Module):
         self.class_classifier.add_module('c_bn2', nn.BatchNorm1d(64))
         self.class_classifier.add_module('c_relu2', nn.ReLU(True))
         self.class_classifier.add_module('c_fc3', nn.Linear(64, self.num_classes))
-        # 定义了领域分类器
+        # Defined the domain classifier
         self.domain_classifier = nn.Sequential()
         self.domain_classifier.add_module('c_fc1', nn.Linear(self.feature_map_size, 128))
         self.domain_classifier.add_module('c_bn1', nn.BatchNorm1d(128))
@@ -62,7 +62,7 @@ class DANN_EEG(nn.Module):
             alignment_head_output = self.alignment_head_target(input_data)
         feature = self.feature(alignment_head_output)
         feature = feature.view(-1, self.feature_map_size)
-        # 这个是GRL，梯度反转层。纸老虎
+        # This is the GRL, the Gradient Reversal Layer.
         reverse_feature = ReverseLayerF.apply(feature, alpha)
         class_output = self.class_classifier(feature)
         domain_output = self.domain_classifier(reverse_feature)

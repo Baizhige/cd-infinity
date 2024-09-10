@@ -21,13 +21,13 @@ class EEG_Infinity(nn.Module):
         self.num_classes = 2
         self.num_channels = transfer_matrix_source.size()[0]
 
-        # 定义了源域alignment heads
+        # define alignment heads for source domain
         self.alignment_head_source = Alignment_head(transfer_matrix=transfer_matrix_source,
                                                     FIR_order=FIR_order, FIR_n=FIR_n)
         self.alignment_head_target = Alignment_head(transfer_matrix=transfer_matrix_target,
                                                     FIR_order=FIR_order, FIR_n=FIR_n)
 
-        # 定义了特征提取器
+        # define features extractor
         if backbone_type == 'EEGNet':
             self.feature = EEGNetFeatureExtractor(num_channels=num_channels)
             self.feature_map_size = 192
@@ -46,7 +46,7 @@ class EEG_Infinity(nn.Module):
         else:
             raise ("error type of backbone")
 
-        # 定义了特征分类器
+        # define features cls
         self.class_classifier1 = nn.Sequential()
         self.class_classifier1.add_module('c_fc1', nn.Linear(self.feature_map_size, 128))
         self.class_classifier1.add_module('c_bn1', nn.BatchNorm1d(128))
@@ -152,9 +152,8 @@ class ShallowNetFeatureExtractor(nn.Module):
                  split_first_layer=True,
                  batch_norm=True,
                  batch_norm_alpha=0.1,
-                 drop_prob=0.5):  # 保持原始参数不变
+                 drop_prob=0.5):
         super(ShallowNetFeatureExtractor, self).__init__()
-        # 初始化类属性，原始参数不变
         self.in_chans = num_channels
         self.input_window_samples = input_window_samples
         self.n_filters_time = n_filters_time
@@ -171,14 +170,12 @@ class ShallowNetFeatureExtractor(nn.Module):
         self.batch_norm_alpha = batch_norm_alpha
         self.drop_prob = drop_prob
 
-        self._build_network()  # 构建网络
-        self._initialize_weights()  # 初始化权重
+        self._build_network()
+        self._initialize_weights()
 
     def _build_network(self):
-        # 构建网络，维持原始结构
         self.ensuredims = Ensure4d()
         pool_class = dict(max=nn.MaxPool2d, mean=nn.AvgPool2d)[self.pool_mode]
-        # 时间卷积层和空间卷积层
         if self.split_first_layer:
             self.conv_time = nn.Conv2d(
                 1,
@@ -204,28 +201,22 @@ class ShallowNetFeatureExtractor(nn.Module):
             )
             n_filters_conv = self.n_filters_time
 
-        # 批量归一化层
         if self.batch_norm:
             self.bnorm = nn.BatchNorm2d(
                 n_filters_conv, momentum=self.batch_norm_alpha, affine=True
             )
 
-        # 非线性表达层
         self.conv_nonlin_exp = Expression(self.conv_nonlin)
 
-        # 池化层
         self.pool = pool_class(
             kernel_size=(self.pool_time_length, 1),
             stride=(self.pool_time_stride, 1),
         )
 
-        # 非线性表达层（池化后）
         self.pool_nonlin_exp = Expression(self.pool_nonlin)
 
-        # Dropout层
         self.drop = nn.Dropout(p=self.drop_prob)
 
-        # 特征提取器
         feature_layers = [
             self.ensuredims,
             Expression(transpose_time_to_spat) if self.split_first_layer else nn.Identity(),
@@ -238,21 +229,17 @@ class ShallowNetFeatureExtractor(nn.Module):
             self.drop
         ]
 
-        # 分离特征提取器和分类器
         self.feature_extractor = nn.Sequential(*feature_layers)
 
     def _initialize_weights(self):
-        # 单独的权重初始化函数
         init.xavier_uniform_(self.conv_time.weight, gain=1)
         if self.split_first_layer or not self.batch_norm:
-            # 如果有偏置项，则初始化为 0
             if self.conv_time.bias is not None:
                 init.zeros_(self.conv_time.bias)
 
         if self.split_first_layer:
             init.xavier_uniform_(self.conv_spat.weight, gain=1)
             if not self.batch_norm:
-                # 如果有偏置项，则初始化为 0
                 init.zeros_(self.conv_spat.bias)
 
         if self.batch_norm:
@@ -262,7 +249,7 @@ class ShallowNetFeatureExtractor(nn.Module):
     def forward(self, x):
         x = x.type(torch.cuda.FloatTensor)
         x = x.permute(0, 2, 3, 1)
-        # 定义前向传播
+
         features = self.feature_extractor(x)
         return features
 

@@ -21,18 +21,18 @@ class EEG_Infinity(nn.Module):
         self.num_classes = 2
         self.num_channels = transfer_matrix_source.size()[0]
 
-        # 定义了源域alignment heads
+        # Defined the source domain alignment heads
         self.alignment_head_source = Alignment_head(transfer_matrix=transfer_matrix_source,
                                                     FIR_order=FIR_order, FIR_n=FIR_n)
         self.alignment_head_target = Alignment_head(transfer_matrix=transfer_matrix_target,
                                                     FIR_order=FIR_order, FIR_n=FIR_n)
-        # 冻结源域的 channel_transfer_matrix
+        # Freeze the source domain's channel_transfer_matrix
         self.alignment_head_source.frozen_transfer_matrix()
 
-        # ChannelNorm()层定义，防止BN层的均值和方差乱飘
+        # Definition of the ChannelNorm() layer to prevent the mean and variance of the BN layer from drifting
         self.channel_norm = ChannelNorm()
 
-        # 定义了特征提取器
+        # Defined the feature extractor
         if backbone_type == 'EEGNet':
             self.feature = EEGNetFeatureExtractor(num_channels=num_channels)
             self.feature_map_size = 192
@@ -51,7 +51,7 @@ class EEG_Infinity(nn.Module):
         else:
             raise ("error type of backbone")
 
-        # 定义了特征分类器
+        # Defined the feature classifier
         self.class_classifier = nn.Sequential()
         self.class_classifier.add_module('c_fc1', nn.Linear(self.feature_map_size, 128))
         self.class_classifier.add_module('c_bn1', nn.BatchNorm1d(128))
@@ -61,7 +61,7 @@ class EEG_Infinity(nn.Module):
         self.class_classifier.add_module('c_bn2', nn.BatchNorm1d(64))
         self.class_classifier.add_module('c_relu2', nn.ReLU(True))
         self.class_classifier.add_module('c_fc3', nn.Linear(64, self.num_classes))
-        # 定义了领域分类器
+        # Defined the domain classifier
         self.domain_classifier = nn.Sequential()
         self.domain_classifier.add_module('c_fc1', nn.Linear(self.feature_map_size, 128))
         self.domain_classifier.add_module('c_bn1', nn.BatchNorm1d(128))
@@ -138,22 +138,22 @@ class ChannelNorm(nn.Module):
 class FIR_convolution(nn.Module):
     def __init__(self, FIR_n, FIR_order):
         super(FIR_convolution, self).__init__()
-        # 创建一个2D卷积层，用于实现FIR滤波器
+        # Create a 2D convolutional layer to implement the FIR filter
         self.FIR_order = FIR_order
         self.conv = nn.Conv2d(1, FIR_n, (1, FIR_order), padding=0, bias=False)
 
-        # 初始化参数，避免过于极端的滤波效果
+        # Initialize parameters to avoid extreme filtering effects
         self.initialize_parameters()
 
     def forward(self, x):
-        # 添加零填充
+        # Add zero padding
         x_padded = F.pad(x, (int(self.conv.kernel_size[1] / 2), int(self.conv.kernel_size[1] / 2), 0, 0),
                          mode='constant', value=0)
-        # 应用卷积（使用归一化的权重）
+        # Apply convolution (using normalized weights)
         return F.conv2d(x_padded, self.conv.weight, padding=0)
 
     def initialize_parameters(self):
-        """ 初始化滤波器的参数，使每个参数的值为 1/FIR_order """
+        """ Initialize the filter parameters so that each parameter value is 1/FIR_order """
         with torch.no_grad():
             self.conv.weight.fill_(1.0 / self.FIR_order)
 
@@ -175,25 +175,25 @@ class Alignment_head(nn.Module):
     def custom_zero_grad(self):
         for param in [self.channel_transfer_matrix, self.domain_filter.conv.weight]:
             if param.grad is None:
-                # 初始化梯度为零
+                # Initialize gradients to zero
                 param.grad = torch.zeros_like(param.data)
             else:
                 param.grad.zero_()
 
     def get_magnitude_loss(self, alpha=0.5):
-        # 确保 channel_transfer_matrix 的每行之和为 1
+        # Ensure that the sum of each row in channel_transfer_matrix is 1
         # row_sums = torch.sum(self.channel_transfer_matrix, dim=1)
         # loss_matrix = torch.sum((row_sums - 1) ** 2)
 
-        # 确保 domain_filter 的每个卷积核参数之和为 1
+        # Ensure that the sum of each convolutional kernel parameter in domain_filter is 1
         filter_sums = self.domain_filter.conv.weight.sum(dim=(1, 2, 3))
         loss_filter = torch.sum((filter_sums - 1) ** 2)
 
-        # 返回两部分损失的总和
+        # Return the sum of the two parts of the loss
         return loss_filter * 1
 
     def frozen_transfer_matrix(self):
-        # 冻结 channel_transfer_matrix 参数
+        # Freeze the channel_transfer_matrix parameters
         self.channel_transfer_matrix.requires_grad = False
 
 
@@ -249,9 +249,9 @@ class ShallowNetFeatureExtractor(nn.Module):
                  split_first_layer=True,
                  batch_norm=True,
                  batch_norm_alpha=0.1,
-                 drop_prob=0.5):  # 保持原始参数不变
+                 drop_prob=0.5):  # Keep the original parameters unchanged
         super(ShallowNetFeatureExtractor, self).__init__()
-        # 初始化类属性，原始参数不变
+        # Initialize class attributes, keeping the original parameters unchanged
         self.in_chans = num_channels
         self.input_window_samples = input_window_samples
         self.n_filters_time = n_filters_time
@@ -268,14 +268,14 @@ class ShallowNetFeatureExtractor(nn.Module):
         self.batch_norm_alpha = batch_norm_alpha
         self.drop_prob = drop_prob
 
-        self._build_network()  # 构建网络
-        self._initialize_weights()  # 初始化权重
+        self._build_network()  # Build the network
+        self._initialize_weights()  # Initialize weights
 
     def _build_network(self):
-        # 构建网络，维持原始结构
+        # Build the network, maintaining the original structure
         self.ensuredims = Ensure4d()
         pool_class = dict(max=nn.MaxPool2d, mean=nn.AvgPool2d)[self.pool_mode]
-        # 时间卷积层和空间卷积层
+        # Temporal convolutional layer and spatial convolutional layer
         if self.split_first_layer:
             self.conv_time = nn.Conv2d(
                 1,
@@ -301,28 +301,28 @@ class ShallowNetFeatureExtractor(nn.Module):
             )
             n_filters_conv = self.n_filters_time
 
-        # 批量归一化层
+        # Batch normalization layer
         if self.batch_norm:
             self.bnorm = nn.BatchNorm2d(
                 n_filters_conv, momentum=self.batch_norm_alpha, affine=True
             )
 
-        # 非线性表达层
+        # Non-linear activation layer
         self.conv_nonlin_exp = Expression(self.conv_nonlin)
 
-        # 池化层
+        # Pooling layer
         self.pool = pool_class(
             kernel_size=(self.pool_time_length, 1),
             stride=(self.pool_time_stride, 1),
         )
 
-        # 非线性表达层（池化后）
+        # Non-linear activation layer (after pooling)
         self.pool_nonlin_exp = Expression(self.pool_nonlin)
 
-        # Dropout层
+        # Dropout layer
         self.drop = nn.Dropout(p=self.drop_prob)
 
-        # 特征提取器
+        # Feature extractor
         feature_layers = [
             self.ensuredims,
             Expression(transpose_time_to_spat) if self.split_first_layer else nn.Identity(),
@@ -335,21 +335,21 @@ class ShallowNetFeatureExtractor(nn.Module):
             self.drop
         ]
 
-        # 分离特征提取器和分类器
+        # Separate feature extractor and classifier
         self.feature_extractor = nn.Sequential(*feature_layers)
 
     def _initialize_weights(self):
-        # 单独的权重初始化函数
+        # Separate weight initialization function
         init.xavier_uniform_(self.conv_time.weight, gain=1)
         if self.split_first_layer or not self.batch_norm:
-            # 如果有偏置项，则初始化为 0
+            # If there is a bias term, initialize it to 0
             if self.conv_time.bias is not None:
                 init.zeros_(self.conv_time.bias)
 
         if self.split_first_layer:
             init.xavier_uniform_(self.conv_spat.weight, gain=1)
             if not self.batch_norm:
-                # 如果有偏置项，则初始化为 0
+                # If there is a bias term, initialize it to 0
                 init.zeros_(self.conv_spat.bias)
 
         if self.batch_norm:
@@ -359,7 +359,7 @@ class ShallowNetFeatureExtractor(nn.Module):
     def forward(self, x):
         x = x.type(torch.cuda.FloatTensor)
         x = x.permute(0, 2, 3, 1)
-        # 定义前向传播
+        # Define the forward propagation
         features = self.feature_extractor(x)
         return features
 
