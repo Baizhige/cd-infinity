@@ -133,7 +133,7 @@ for cross_id in range(NFold):
                                   alpha=config.getfloat('optimizer', 'alpha'),
                                   beta=config.getfloat('optimizer', 'beta'), total_steps=total_steps)
 
-    # 两个negative log loss
+    # two negative log losses
     loss_class = torch.nn.NLLLoss()
     loss_domain = torch.nn.NLLLoss()
     my_LogSoftmax = torch.nn.LogSoftmax(dim=1)
@@ -152,20 +152,20 @@ for cross_id in range(NFold):
     best_index_target = 0
 
     for epoch in range(n_epoch):
-        # 每个epoch做如下事情
+        # for each epoch, do
         data_source_iter = iter(source_train_dataloader)
         data_target_iter = iter(target_train_dataloader)
         my_net.train()
         for i in range(len_dataloader):
             my_net.zero_grad()
 
-            # p 代表总进度，从0到1均匀变化
+            # p stands for prorgession, ranging from 0 to 1.
             p = float(i + epoch * len_dataloader) / n_epoch / len_dataloader
 
-            # 梯度反转层的反传因子
+            # parameter of GRL
             alpha = 2. / (1. + np.exp(config.getint('GRL', 'decay') * p)) - 1
 
-            # 正向传播源域数据
+            # forward source data
             data_source = next(data_source_iter)
 
             s_eeg, s_subject, s_label = data_source
@@ -177,11 +177,11 @@ for cross_id in range(NFold):
                 s_domain_label = s_domain_label.cuda()
 
             s_class_output, s_domain_output, _, _ = my_net(input_data=s_eeg, domain=0, alpha=alpha)
-            # 源域的分类误差
+            # cls loss for source domain
             err_s_label = loss_class(my_LogSoftmax(s_class_output), s_label.long())
             err_s_domain = s_domain_output.mean()
 
-            # 正向传播目标域数据
+            # forward data from target domain
             data_target = next(data_target_iter)
             t_eeg, t_subject, t_label = data_target
 
@@ -197,15 +197,14 @@ for cross_id in range(NFold):
             err_t_label = loss_class(my_LogSoftmax(t_class_output), t_label.long())
             err_t_domain = t_domain_output.mean()*(-1)
 
-            # 开始计算 loss
-            # 计算DANN的-loss
+            # begin to compute DANN-wass loss
             err_DANN = err_s_label + err_s_domain + err_t_domain
             err_DANN.backward()
 
-            # 截断梯度
+            # clip gradients
             my_net.clip_gradients_domain_classifier()
 
-            # 更新权重
+            # update weights
             optimizer.step()
             scheduler.step(epoch * len_dataloader + i)
             if config.getint('debug', 'isdebug'):

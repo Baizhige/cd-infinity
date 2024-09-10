@@ -23,16 +23,16 @@ def euclidean_dist(x, y):
     """
 
     m, n = x.size(0), y.size(0)
-    # xx经过pow()方法对每单个数据进行二次方操作后，在axis=1 方向（横向，就是第一列向最后一列的方向）加和，此时xx的shape为(m, 1)，经过expand()方法，扩展n-1次，此时xx的shape为(m, n)
+    # After applying the pow() method, each individual element in xx is squared. Then, the sum is taken along axis=1 (horizontally, from the first column to the last column). At this point, the shape of xx is (m, 1). After using the expand() method, it is expanded n-1 times, so the shape of xx becomes (m, n).
     xx = torch.pow(x, 2).sum(1, keepdim=True).expand(m, n)
-    # yy会在最后进行转置的操作
+    # yy will be transposed at the end.
     yy = torch.pow(y, 2).sum(1, keepdim=True).expand(n, m).t()
     dist = xx + yy
-    # torch.addmm(beta=1, input, alpha=1, mat1, mat2, out=None)，这行表示的意思是dist - 2 * x * yT
+    # torch.addmm(beta=1, input, alpha=1, mat1, mat2, out=None), this line represents dist - 2 * x * yT
     dist.addmm_(1, -2, x, y.t())
-    # clamp()函数可以限定dist内元素的最大最小范围，dist最后开方，得到样本之间的距离矩阵
+    # The clamp() function limits the elements in dist to a specified minimum and maximum range, and finally, the square root is taken, resulting in the distance matrix between samples.
     dist = dist.clamp(min=1e-12).sqrt()  # for numerical stability
-    dist = torch.sum(dist)  # 所有距离加和
+    dist = torch.sum(dist)  # Sum all distances
     return dist
 
 parser = argparse.ArgumentParser(description='Read configuration file.')
@@ -154,7 +154,7 @@ for cross_id in range(NFold):
                                   alpha=config.getfloat('optimizer', 'alpha'),
                                   beta=config.getfloat('optimizer', 'beta'), total_steps=total_steps)
 
-    # 两个negative log loss
+    # two negative log losses
     loss_class = torch.nn.NLLLoss()
     loss_domain = torch.nn.NLLLoss()
     my_LogSoftmax = torch.nn.LogSoftmax(dim=1)
@@ -173,20 +173,20 @@ for cross_id in range(NFold):
     best_index_target = 0
 
     for epoch in range(n_epoch):
-        # 每个epoch做如下事情
+        # for each epoch, do:
         data_source_iter = iter(source_train_dataloader)
         data_target_iter = iter(target_train_dataloader)
         my_net.train()
         for i in range(len_dataloader):
             my_net.zero_grad()
 
-            # p 代表总进度，从0到1均匀变化
+            # p stands for prorgession, ranging from 0 to 1.
             p = float(i + epoch * len_dataloader) / n_epoch / len_dataloader
 
-            # 梯度反转层的反传因子
+            # useless in DeepCoral, just keep code style
             alpha = 2. / (1. + np.exp(config.getint('GRL', 'decay') * p)) - 1
 
-            # 正向传播源域数据
+            # forward
             data_source = next(data_source_iter)
 
             s_eeg, s_subject, s_label = data_source
@@ -198,10 +198,10 @@ for cross_id in range(NFold):
                 s_domain_label = s_domain_label.cuda()
 
             s_class_output, __s_feature0__, __s_feature1__, __s_feature2__ = my_net(input_data=s_eeg, domain=0, alpha=alpha)
-            # 源域的分类误差
+            # cls of source data
             err_s_label = loss_class(my_LogSoftmax(s_class_output), s_label.long())
 
-            # 正向传播目标域数据
+            # forward target data
             data_target = next(data_target_iter)
             t_eeg, t_subject, t_label = data_target
 
@@ -210,8 +210,7 @@ for cross_id in range(NFold):
 
             t_class_output, __t_feature0__, __t_feature1__, __t_feature2__ = my_net(input_data=t_eeg, domain=1, alpha=alpha)
 
-            # 开始计算 loss
-            # 计算调整 source和target的lossl
+            # adujust loss for source and target
             if len(s_label) == len(t_label):
                 coral_loss0 = euclidean_dist(__s_feature0__, __t_feature0__)/30000
                 coral_loss1 = euclidean_dist(__s_feature1__, __t_feature1__)/30000
@@ -223,7 +222,7 @@ for cross_id in range(NFold):
 
 
 
-            # 更新权重
+            # update weights
             optimizer.step()
             scheduler.step(epoch * len_dataloader + i)
             if config.getint('debug', 'isdebug'):

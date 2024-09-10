@@ -23,22 +23,22 @@ def cov_loss_cos_distance(tensorA, tensorB):
     """
 
     def compute_mean_covariance(input_tensor):
-        # 删除大小为 1 的维度，使 tensor 形状变为 (batchsize, c, T)
+        # squeeze, the shape is (batchsize, c, T)
         input_tensor = input_tensor.squeeze(1)
 
-        # 数据中心化：每个特征减去其均值
+        # center data (mean is 0)
         mean = input_tensor.mean(dim=-1, keepdim=True)
         input_tensor_centered = input_tensor - mean
 
-        # 计算协方差矩阵
+        # calculate covariance matrix
         covariance_matrices = torch.matmul(input_tensor_centered, input_tensor_centered.transpose(1, 2)) / (
                     input_tensor_centered.shape[-1] - 1)
 
-        # 计算平均协方差矩阵
+        # calculate mean covariance matrix
         mean_covariance = covariance_matrices.mean(dim=0)
         return mean_covariance
 
-    # 计算两个 tensor 的平均协方差矩阵
+    # calculate covariance matrix
     mean_covariance_A = compute_mean_covariance(tensorA)
     mean_covariance_B = compute_mean_covariance(tensorB)
 
@@ -51,8 +51,7 @@ def cov_loss_cos_distance(tensorA, tensorB):
     loss = 1 - cosine_similarity
     return torch.mean(loss)
 
-# ======
-# 计算权重用的function，目前在测试阶段，如果后续会经常用到需要并入到 my_utils.my_tool 里面 ===============================
+
 a_s, b_s = 10, 0.3
 a_f, b_f, c_f = 10, 0.3, 0.6
 a_d, b_d = 10, 0.6
@@ -219,13 +218,13 @@ for cross_id in range(NFold):
         for i in range(len_dataloader):
             my_net.zero_grad()
 
-            # p 代表总进度，从0到1均匀变化
+            # p stands for prorgession, ranging from 0 to 1.
             p = float(i + epoch * len_dataloader) / n_epoch / len_dataloader
 
-            # 梯度反转层的反传因子
+            # parameter of GRL
             alpha = 2. / (1. + np.exp(config.getint('GRL', 'decay') * p)) - 1
 
-            # 正向传播源域数据
+            # forward source data
             data_source = next(data_source_iter)
 
             s_eeg, s_subject, s_label = data_source
@@ -237,11 +236,11 @@ for cross_id in range(NFold):
                 s_domain_label = s_domain_label.cuda()
 
             s_class_output, s_domain_output, s_spatial_output, s_filter_output = my_net(input_data=s_eeg, domain=0, alpha=alpha)
-            # 源域的分类误差
+            # cls loss for source domain
             err_s_label = loss_class(my_LogSoftmax(s_class_output), s_label.long())
             err_s_domain = loss_domain(my_LogSoftmax(s_domain_output), s_domain_label)
 
-            # 正向传播目标域数据
+            # forward target domain
             data_target = next(data_target_iter)
             t_eeg, t_subject, t_label = data_target
 
@@ -257,26 +256,25 @@ for cross_id in range(NFold):
             err_t_label = loss_class(my_LogSoftmax(t_class_output), t_label.long())
             err_t_domain = loss_domain(my_LogSoftmax(t_domain_output), t_domain_label)
 
-            # 开始计算 loss
-            # 计算DANN的-loss
+            # calculate DANN loss
             err_DANN = err_s_label + weight_d(p, a_d, b_d)*err_s_domain + weight_d(p, a_d, b_d)*err_t_domain
             err_DANN.backward(retain_graph=True)
 
-            # DANN相关的 loss 不会对 alignment head 直接造成影响，故将其梯度置0
+            # label classifer loss do not contribute to alignment head directly, so set the gradients to zero.
             my_net.alignment_head_source.custom_zero_grad()
             my_net.alignment_head_target.custom_zero_grad()
 
-            # 计算 alignment head 的正则化 loss
+            # calculate alignment head's loss for req
             err_s_alignment_head = my_net.alignment_head_source.get_magnitude_loss()
             err_t_alignment_head = my_net.alignment_head_target.get_magnitude_loss()
             err_st_alignment_head = err_s_alignment_head + err_t_alignment_head
             err_st_alignment_head.backward(retain_graph=True)
 
-            # 计算调整 调整 alignment head的loss
+            # calculate alignment head's loss
             if len(s_label) == len(t_label):
-                # 计算 L1 loss 与spatial和filter都有关
+                # contribute to spatial and filter
                 l1_distance = F.l1_loss(s_filter_output, t_filter_output, reduction='mean') * weight_f(p, a_f, b_f, c_f) / 1000
-                # 计算 cov_loss ，仅仅与spatial有关
+                # contribute to spatial
                 cov_distance = cov_loss_cos_distance(s_spatial_output, t_spatial_output) * weight_s(p, a_s, b_s)
                 (cov_distance+l1_distance).backward()
                 with torch.no_grad():
@@ -284,7 +282,7 @@ for cross_id in range(NFold):
 
 
 
-            # 更新权重
+            # update weights
             optimizer.step()
             scheduler.step(epoch * len_dataloader + i)
             if config.getint('debug', 'isdebug'):

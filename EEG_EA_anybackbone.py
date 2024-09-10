@@ -156,20 +156,20 @@ for cross_id in range(NFold):
     best_index_target = 0
 
     for epoch in range(n_epoch):
-        # 每个epoch做如下事情
+        # for each epoch, do:
         data_source_iter = iter(source_train_dataloader)
         data_target_iter = iter(target_train_dataloader)
         my_net.train()
         for i in range(len_dataloader):
             my_net.zero_grad()
 
-            # p 代表总进度，从0到1均匀变化
+            # p stands for prorgession, ranging from 0 to 1.
             p = float(i + epoch * len_dataloader) / n_epoch / len_dataloader
 
-            # 梯度反转层的反传因子
+            # useless in EA, just keep code style
             alpha = 2. / (1. + np.exp(config.getint('GRL', 'decay') * p)) - 1
 
-            # 正向传播源域数据
+            # forward
             data_source = next(data_source_iter)
 
             s_eeg, s_subject, s_label = data_source
@@ -179,11 +179,11 @@ for cross_id in range(NFold):
                 s_label = s_label.cuda()
 
             s_class_output, _, _, _ = my_net(input_data=s_eeg, domain=0, alpha=alpha)
-            # 源域的分类误差
+            # cls loss for source domain
             err_s_label = loss_class(my_LogSoftmax(s_class_output), s_label.long())
 
             err_s_label.backward()
-            # 更新权重
+            # update weights
             optimizer.step()
             scheduler.step(epoch * len_dataloader + i)
             if config.getint('debug', 'isdebug'):

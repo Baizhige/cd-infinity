@@ -16,29 +16,29 @@ import argparse
 
 def cov_loss_cos_distance(tensorA, tensorB):
     """
-    计算两组 tensor（tensorA 和 tensorB）的平均协方差矩阵之间的 L2 距离。
+    Calculate the L2 distance between the average covariance matrices of two tensors (tensorA and tensorB).
 
-    tensorA 和 tensorB 都是形状为 (batchsize, 1, c, T) 的 tensor。
-    每个 tensor 包含 batchsize 个样本，每个样本是一个 c 行 T 列的矩阵。
+    Both tensorA and tensorB are tensors with the shape (batchsize, 1, c, T).
+    Each tensor contains batchsize samples, and each sample is a matrix with c rows and T columns.
     """
 
     def compute_mean_covariance(input_tensor):
-        # 删除大小为 1 的维度，使 tensor 形状变为 (batchsize, c, T)
+        # squeeze, the shape is (batchsize, c, T)
         input_tensor = input_tensor.squeeze(1)
 
-        # 数据中心化：每个特征减去其均值
+        # center data (mean is 0)
         mean = input_tensor.mean(dim=-1, keepdim=True)
         input_tensor_centered = input_tensor - mean
 
-        # 计算协方差矩阵
+        # calculate covariance matrix
         covariance_matrices = torch.matmul(input_tensor_centered, input_tensor_centered.transpose(1, 2)) / (
                     input_tensor_centered.shape[-1] - 1)
 
-        # 计算平均协方差矩阵
+        # calculate mean covariance matrix
         mean_covariance = covariance_matrices.mean(dim=0)
         return mean_covariance
 
-    # 计算两个 tensor 的平均协方差矩阵
+    # calculate covariance matrix
     mean_covariance_A = compute_mean_covariance(tensorA)
     mean_covariance_B = compute_mean_covariance(tensorB)
 
@@ -51,8 +51,6 @@ def cov_loss_cos_distance(tensorA, tensorB):
     loss = 1 - cosine_similarity
     return torch.mean(loss)
 
-# ======
-# 计算权重用的function，目前在测试阶段，如果后续会经常用到需要并入到 my_utils.my_tool 里面 ===============================
 a_s, b_s = 10, 0.3
 a_f, b_f, c_f = 10, 0.3, 0.6
 a_d, b_d = 10, 0.6
@@ -193,7 +191,7 @@ for cross_id in range(NFold):
                                   alpha=config.getfloat('optimizer', 'alpha'),
                                   beta=config.getfloat('optimizer', 'beta'), total_steps=total_steps)
 
-    # 两个negative log loss
+    # two negative log losses
     loss_class = torch.nn.NLLLoss()
     loss_domain = torch.nn.NLLLoss()
     my_LogSoftmax = torch.nn.LogSoftmax(dim=1)

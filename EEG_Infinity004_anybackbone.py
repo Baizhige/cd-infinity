@@ -280,44 +280,42 @@ for cross_id in range(NFold):
 
             # for label classifier loss gradient
             err_s_label.backward(retain_graph=True)
-            # As label classifier loss在 feature extractor有梯度，因此截取label classifier loss在feature extractor的梯度，等待进一步合并计算。
+            # As label classifier loss for feature extractor has gradients, so clip the gradient for label classifier loss in feature extractor, waiting for next combination
             gradients_l_y_feature_extractor = steal_gradients_feature_extractor(my_net)
-            # label classifier loss 不会对 alignment head 直接造成影响，故将其梯度置0
+            # label classifer loss do not contribute to alignment head directly, so set the gradients to zero.
             my_net.alignment_head_source.custom_zero_grad()
             my_net.alignment_head_target.custom_zero_grad()
 
-            #计算domain classifier loss
+            # Calculate the domain classifier loss
             l_d = err_t_domain + err_s_domain
             l_d.backward(retain_graph=True)
-            # 由于domain classifier loss 在 feature extractor有梯度，因此截取domain classifier loss在feature extractor的梯度，等待进一步合并计算。
-            # 截取domain classifier的loss在共同参数上的梯度（共同参数上的梯度被置零）
+            # Since the domain classifier loss has gradients in the feature extractor, capture the domain classifier loss gradients in the feature extractor and wait for further combination calculations.
+            # Capture the domain classifier loss gradients in the shared parameters (the gradients in the shared parameters are set to zero)
             gradients_l_d_feature_extractor = steal_gradients_feature_extractor(my_net)
-            # 由于domain classifier loss在 target transfer matrix有梯度，因此截取domain classifier loss在target transfer matrix的梯度，等待进一步合并计算。
-            # 截取domain classifier的loss在共同参数上的梯度（共同参数上的梯度被置零）
+            # Since the domain classifier loss has gradients in the target transfer matrix, capture the domain classifier loss gradients in the target transfer matrix and wait for further combination calculations.
+            # Capture the domain classifier loss gradients in the shared parameters (the gradients in the shared parameters are set to zero)
             gradients_l_d = steal_gradients_target_transfer_matrix(my_net)
 
-
-            # 计算 alignment head 的正则化 loss
+            # Calculate the regularization loss for the alignment head
             err_s_alignment_head = my_net.alignment_head_source.get_magnitude_loss()
             err_t_alignment_head = my_net.alignment_head_target.get_magnitude_loss()
             err_st_alignment_head = err_s_alignment_head + err_t_alignment_head
             err_st_alignment_head.backward(retain_graph=True)
 
-
-            # 计算 loss_fre
+            # Calculate the loss_fre
             loss_fre = F.l1_loss(s_filter_output, t_filter_output, reduction='mean')/1000
             loss_fre.backward(retain_graph=True)
-            # 由于loss_fre在 target transfer matrix有梯度，因此截取loss_fre在target transfer matrix的梯度，等待进一步合并计算。
-            # 截取loss_fre在共同参数上的梯度（共同参数上的梯度被置零）
+            # Since loss_fre has gradients in the target transfer matrix, capture the loss_fre gradients in the target transfer matrix and wait for further combination calculations.
+            # Capture the loss_fre gradients in the shared parameters (the gradients in the shared parameters are set to zero)
             gradients_loss_fre = steal_gradients_target_transfer_matrix(my_net)
-            # 计算 cov_loss
+            # Calculate cov_loss
             loss_cov = cov_loss_cos_distance(s_spatial_output, t_spatial_output)
             loss_cov.backward(retain_graph=True)
-            # 由于loss_cov在 target transfer matrix有梯度，因此截取loss_cov在target transfer matrix的梯度，等待进一步合并计算。
-            # 截取loss_cov在共同参数上的梯度（共同参数上的梯度被置零）
+            # Since loss_cov has gradients in the target transfer matrix, capture the loss_cov gradients in the target transfer matrix and wait for further combination calculations.
+            # Capture the loss_cov gradients in the shared parameters (the gradients in the shared parameters are set to zero)
             gradients_loss_cov = steal_gradients_target_transfer_matrix(my_net)
 
-            # 计算 target_transfer_matrix的共同参数的梯度，由三部分梯度{"l_d":gradients_l_d, "l_cov":gradients_loss_cov, "l_fre":gradients_loss_fre}求解而得======================
+            # Calculate the gradients of the shared parameters of the target_transfer_matrix, obtained by solving the three parts of the gradients {"l_d":gradients_l_d, "l_cov":gradients_loss_cov, "l_fre":gradients_loss_fre}
             loss_data = {"l_d":l_d, "l_cov":loss_cov, "l_fre":loss_fre}
             __multi_grads_norm__ = {"l_d":gradients_l_d.copy(), "l_cov":gradients_loss_cov.copy(), "l_fre":gradients_loss_fre.copy()}
             gn = gradient_normalizers(__multi_grads_norm__, loss_data, "loss+")
@@ -333,7 +331,7 @@ for cross_id in range(NFold):
                 gradient_channel = torch.mean(torch.abs(my_net.alignment_head_target.channel_transfer_matrix.grad.data))
             # ======================
 
-            # 计算 feature_extrator的共同参数的梯度，由三部分梯度{"l_d":gradients_l_d, "l_label":gradients_loss_label}求解而得======================
+            # Calculate the gradients of the shared parameters of the feature_extractor, obtained by solving the two parts of the gradients {"l_d":gradients_l_d, "l_label":gradients_loss_label}
             loss_data_feature_extractor = {"l_d":l_d, "l_y":err_s_label}
             __multi_grads_norm_feature_extractor__ = {"l_d":gradients_l_d_feature_extractor.copy(), "l_y":gradients_l_y_feature_extractor.copy()}
 
@@ -353,7 +351,7 @@ for cross_id in range(NFold):
             with torch.no_grad():
                 gradient_channel = torch.mean(torch.abs(my_net.alignment_head_target.channel_transfer_matrix.grad.data))
             # ======================
-            # 更新权重
+            # Update weights
             optimizer.step()
             scheduler.step(epoch * len_dataloader + i)
 
