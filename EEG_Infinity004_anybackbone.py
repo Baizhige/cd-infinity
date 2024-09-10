@@ -18,13 +18,13 @@ from torch.autograd import Variable
 # ====
 def steal_gradients_target_transfer_matrix(model):
     '''
-    返回loss给model，并且截取保存指定参数的梯度，清空指定参数的梯度。
+    Return the loss to the model, capture and save the gradients of specific parameters, and clear the gradients of specified parameters.
     Args:
-        loss: 要计算梯度的loss
-        model: 传入的网络参数
+        loss: The loss for which the gradient is to be calculated.
+        model: The network parameters passed in.
     Returns:
-        返回“共同参数”的梯度
-        共同参数包括：
+        The gradients of the "common parameters."
+        Common parameters include:
         -- domain_filter
         -- channel_transfer_matrix
         -- domain_filter
@@ -35,47 +35,47 @@ def steal_gradients_target_transfer_matrix(model):
 
 def steal_gradients_feature_extractor(model):
     '''
-    返回loss给model，并且截取保存feature module下所有参数的梯度，清空这些参数的梯度。
+    Return the loss to the model, capture and save the gradients of all parameters under the feature module, and clear the gradients of these parameters.
     Args:
-        loss: 要计算梯度的loss
-        model: 传入的网络参数
+        loss: The loss for which the gradient is to be calculated.
+        model: The network parameters passed in.
     Returns:
-        返回feature module下所有参数的梯度
+        The gradients of all parameters under the feature module.
     '''
-    # 截取并保存feature module下所有参数的梯度
+    # steal gradients for all weights in feature module
     gradients = []
     for param in model.feature.parameters():
         if param.grad is not None:
             gradients.append(Variable(param.grad.data.clone(), requires_grad=False))
-            # 清空梯度
+            # zero gradients
             param.grad.zero_()
     return gradients
 
 def cov_loss_cos_distance(tensorA, tensorB):
     """
-    计算两组 tensor（tensorA 和 tensorB）的平均协方差矩阵之间的余弦距离。
+    Calculate the cosine distance between the average covariance matrices of two tensors (tensorA and tensorB).
 
-    tensorA 和 tensorB 都是形状为 (batchsize, 1, c, T) 的 tensor。
-    每个 tensor 包含 batchsize 个样本，每个样本是一个 c 行 T 列的矩阵。
+    Both tensorA and tensorB are tensors with the shape (batchsize, 1, c, T).
+    Each tensor contains batchsize samples, and each sample is a matrix with c rows and T columns.
     """
 
     def compute_mean_covariance(input_tensor):
-        # 删除大小为 1 的维度，使 tensor 形状变为 (batchsize, c, T)
+        # Remove dimensions of size 1, changing the tensor shape to (batchsize, c, T)
         input_tensor = input_tensor.squeeze(1)
 
-        # 数据中心化：每个特征减去其均值
+        # Data centralization: subtract the mean from each feature
         mean = input_tensor.mean(dim=-1, keepdim=True)
         input_tensor_centered = input_tensor - mean
 
-        # 计算协方差矩阵
+        # Calculate the covariance matrix
         covariance_matrices = torch.matmul(input_tensor_centered, input_tensor_centered.transpose(1, 2)) / (
                     input_tensor_centered.shape[-1] - 1)
 
-        # 计算平均协方差矩阵
+        # Calculate the mean covariance matrix
         mean_covariance = covariance_matrices.mean(dim=0)
         return mean_covariance
 
-    # 计算两个 tensor 的平均协方差矩阵
+    # Compute the mean covariance matrices for two tensors
     mean_covariance_A = compute_mean_covariance(tensorA)
     mean_covariance_B = compute_mean_covariance(tensorB)
 
@@ -213,7 +213,7 @@ for cross_id in range(NFold):
                                   alpha=config.getfloat('optimizer', 'alpha'),
                                   beta=config.getfloat('optimizer', 'beta'), total_steps=total_steps)
 
-    # 两个negative log loss
+    # two negative log losses
     loss_class = torch.nn.NLLLoss()
     loss_domain = torch.nn.NLLLoss()
     my_LogSoftmax = torch.nn.LogSoftmax(dim=1)
@@ -232,13 +232,13 @@ for cross_id in range(NFold):
     best_index_target = 0
 
     for epoch in range(n_epoch):
-        # 每个epoch做如下事情
+        # for each epoch, do:
         data_source_iter = iter(source_train_dataloader)
         data_target_iter = iter(target_train_dataloader)
         my_net.train()
         for i in range(len_dataloader):
             my_net.zero_grad()
-            # 正向传播源域数据
+            # forward source data
             data_source = next(data_source_iter)
 
             s_eeg, s_subject, s_label = data_source
@@ -249,7 +249,7 @@ for cross_id in range(NFold):
                 s_label = s_label.cuda()
                 s_domain_label = s_domain_label.cuda()
 
-            # 正向传播目标域数据
+            # forward target data
             data_target = next(data_target_iter)
             t_eeg, t_subject, t_label = data_target
 
@@ -261,26 +261,26 @@ for cross_id in range(NFold):
                 t_domain_label = t_domain_label.cuda()
 
             if len(s_label) != len(t_label):
-                # 在最后一个iter时，可能会有源域和目标域的数量不对称，直接pass
+                # In the last iteration, there may be an asymmetry in the number of source and target domains, just pass.
                 continue
 
             s_class_output, s_domain_output, s_spatial_output, s_filter_output = my_net(input_data=s_eeg, domain=0, alpha=1)
-            # 源域的分类误差
+            # cls loss for source domain
             err_s_label = loss_class(my_LogSoftmax(s_class_output), s_label.long())
             err_s_domain = loss_domain(my_LogSoftmax(s_domain_output), s_domain_label)
 
 
             t_class_output, t_domain_output, t_spatial_output, t_filter_output = my_net(input_data=t_eeg, domain=1, alpha=1)
-            # 源域的目标域误差
+            # target loss
             err_t_label = loss_class(my_LogSoftmax(t_class_output), t_label.long())
             err_t_domain = loss_domain(my_LogSoftmax(t_domain_output), t_domain_label)
 
 
-            # 开始计算损失和梯度
+            # begin to calculate loss
 
-            # 计算label classifier loss 的梯度
+            # for label classifier loss gradient
             err_s_label.backward(retain_graph=True)
-            # 由于label classifier loss在 feature extractor有梯度，因此截取label classifier loss在feature extractor的梯度，等待进一步合并计算。
+            # As label classifier loss在 feature extractor有梯度，因此截取label classifier loss在feature extractor的梯度，等待进一步合并计算。
             gradients_l_y_feature_extractor = steal_gradients_feature_extractor(my_net)
             # label classifier loss 不会对 alignment head 直接造成影响，故将其梯度置0
             my_net.alignment_head_source.custom_zero_grad()
