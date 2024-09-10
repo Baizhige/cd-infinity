@@ -4,6 +4,9 @@ import argparse
 import configparser
 import torch.nn as nn
 from my_utils.model_EEG_Infinity003Wass_any_backbone import FIR_convolution
+import numpy as np
+import matplotlib.pyplot as plt
+
 def get_Para(method, cross_id, task):
     # 定义模型文件名和文件夹路径
     model_name = f'Comparison_{method}_InceptionEEG_{task}_1_cross_id_{cross_id}_best_target_model.pth'
@@ -23,10 +26,24 @@ def get_Para(method, cross_id, task):
 
     return model.alignment_head_source.channel_transfer_matrix.detach().numpy().squeeze(), model.alignment_head_source.domain_filter.conv.weight.detach().numpy().squeeze(), model.alignment_head_target.channel_transfer_matrix.detach().numpy().squeeze(), model.alignment_head_target.domain_filter.conv.weight.detach().numpy().squeeze()
 
+def get_Para_feature(method, cross_id, task):
+    # 定义模型文件名和文件夹路径
+    model_name = f'Comparison_{method}_InceptionEEG_{task}_1_cross_id_{cross_id}_best_target_model.pth'
+    models_folder = 'models'
 
-import numpy as np
-import matplotlib.pyplot as plt
+    parser = argparse.ArgumentParser(description='Read configuration file.')
+    parser.add_argument('--config', default=f'config_{task}.ini', help='Path to the config.ini file')
+    args = parser.parse_args()
 
+    config = configparser.ConfigParser()
+    config.read(os.path.join("hyperparameters", args.config))
+
+    # 使用torch.load加载模型
+    model_path = os.path.join(models_folder, model_name)
+
+    model = torch.load(model_path, map_location=torch.device('cpu'))
+
+    return model.feature
 
 def draw_model_parameter(matrix1, matrix2, vector1, vector2):
     fig, axes = plt.subplots(1, 4, figsize=(20, 5), dpi=300)
@@ -95,14 +112,34 @@ def get_prior_transfer(task):
 
     return transfer_matrix_source, transfer_matrix_target
 
+class ChannelNorm(nn.Module):
+    def forward(self, input):
+        batch_size, n_layers, n_channels, n_sampling = input.size()
+
+        # Reshape input to (batch_size * n_layers, n_channels, n_sampling)
+        input_reshaped = input.view(-1, n_channels, n_sampling)
+
+        # Calculate mean and variance along the last dimension
+        mean = torch.mean(input_reshaped, dim=-1, keepdim=True)
+        variance = torch.var(input_reshaped, dim=-1, keepdim=True, unbiased=False)
+
+        # Normalize input
+        output = (input_reshaped - mean) / torch.sqrt(variance + 1e-8)
+
+        # Reshape output back to the original shape
+        output = output.view(batch_size, n_layers, n_channels, n_sampling)
+
+        return output
+
 
 def transform_data(method, cross_id, task):
+    channelnorm = ChannelNorm()
     # get prior transfer matrix
     transfer_matrix_source, transfer_matrix_target = get_prior_transfer(task)
 
     # get model parameters
     source_SFB, source_FFB, target_SFB, target_FFB = get_Para(method, cross_id, task=task)
-
+    feature_extrator = get_Para_feature(method, cross_id, task=task)
     # get data
     source_train_data, target_train_data = get_data(cross_id, task)
 
@@ -125,11 +162,18 @@ def transform_data(method, cross_id, task):
     # 使用torch.no_grad()禁用梯度计算
     with torch.no_grad():
         # 使用conv_layer进行卷积操作
-        source_output_tensor = source_domain_filter(source_input_tensor)
-        target_output_tensor = target_domain_filter(target_input_tensor)
+        source_output_tensor = channelnorm(source_domain_filter(source_input_tensor))
+        target_output_tensor = channelnorm(target_domain_filter(target_input_tensor))
+
 
     source_FIR_transformed_data = source_output_tensor.numpy().squeeze()
     target_FIR_transformed_data = target_output_tensor.numpy().squeeze()
+
+    source_feature_tensor = feature_extrator(source_output_tensor)
+    target_feature_tensor = feature_extrator(target_output_tensor)
+
+    source_feature_data = source_feature_tensor.detach().numpy().squeeze()
+    target_feature_data = target_feature_tensor.detach().numpy().squeeze()
 
     print(source_train_data.shape)
     print(target_train_data.shape)
@@ -143,17 +187,24 @@ def transform_data(method, cross_id, task):
     print(source_FIR_transformed_data.shape)
     print(target_FIR_transformed_data.shape)
 
-    np.save(os.path.join("record", "source_train_data.npy"), source_train_data)
-    np.save(os.path.join("record", "target_train_data.npy"), target_train_data)
+    print(source_feature_data.shape)
+    print(target_feature_data.shape)
 
-    np.save(os.path.join("record", "source_prior_transformed_data.npy"), source_prior_transformed_data)
-    np.save(os.path.join("record", "target_prior_transformed_data.npy"), target_prior_transformed_data)
 
-    np.save(os.path.join("record", "source_adjust_transformed_data.npy"), source_adjust_transformed_data)
-    np.save(os.path.join("record", "target_adjust_transformed_data.npy"), target_adjust_transformed_data)
-
-    np.save(os.path.join("record", "source_FIR_transformed_data.npy"), source_FIR_transformed_data)
-    np.save(os.path.join("record", "target_FIR_transformed_data.npy"), target_FIR_transformed_data)
+    # np.save(os.path.join("record", "source_train_data.npy"), source_train_data)
+    # np.save(os.path.join("record", "target_train_data.npy"), target_train_data)
+    #
+    # np.save(os.path.join("record", "source_prior_transformed_data.npy"), source_prior_transformed_data)
+    # np.save(os.path.join("record", "target_prior_transformed_data.npy"), target_prior_transformed_data)
+    #
+    # np.save(os.path.join("record", "source_adjust_transformed_data.npy"), source_adjust_transformed_data)
+    # np.save(os.path.join("record", "target_adjust_transformed_data.npy"), target_adjust_transformed_data)
+    #
+    # np.save(os.path.join("record", "source_FIR_transformed_data.npy"), source_FIR_transformed_data)
+    # np.save(os.path.join("record", "target_FIR_transformed_data.npy"), target_FIR_transformed_data)
+    #
+    # np.save(os.path.join("record", "source_features.npy"), source_feature_data)
+    # np.save(os.path.join("record", "target_features.npy"), target_feature_data)
 
     return None
 
@@ -162,4 +213,4 @@ cross_id = 0
 # source_SFB, source_FFB, target_SFB, target_FFB = get_Para("EEG_Infinity005Wass", cross_id, task="MengExp12ToMengExp3")
 # draw_model_parameter(source_SFB, target_SFB, source_FFB, target_FFB)
 
-transform_data("EEG_Infinity006Wass", cross_id, task="MengExp12ToMengExp3")
+transform_data("EEG_Infinity005Wass", cross_id, task="MengExp12ToMengExp3")

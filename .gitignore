@@ -1,0 +1,25 @@
+# 忽略 PyCharm 相关文件
+.idea/
+
+# 忽略 .\record 目录下的所有文件，但保留文件夹
+record/*
+!record/.gitkeep
+
+# 忽略 .\animation 目录下的所有文件，但保留文件夹
+animation/*
+!animation/.gitkeep
+
+# 忽略 .\log 目录下的所有文件，但保留文件夹
+log/*
+!log/.gitkeep
+
+# 忽略 .\history_task_sheet 文件，但保留文件夹
+history_task_sheet/*
+!history_task_sheet/.gitkeep
+
+# 忽略 .\figures 目录下的所有文件，但保留文件夹
+figures/*
+!figures/.gitkeep
+
+# 忽略包含 'VF' 的 Python 文件
+*VF*.py
