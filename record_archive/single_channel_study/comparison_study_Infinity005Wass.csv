@@ -1,0 +1,9 @@
+Date,Cache Prefix,Source Domain Val Accuracy,Source Domain Test Accuracy,Target Domain Val Accuracy,Target Domain Test Accuracy
+2025/5/16,R2One_Infinity005Wass_EEGNet_oneMengExp3ToMengExp12_1,0.64926(0.00966),0.63893(0.01585),0.71210(0.00933),0.70774(0.01332)
+2025/5/16,R2One_Infinity005Wass_ShallowConvNet_oneMengExp3ToMengExp12_1,0.61827(0.01037),0.59484(0.01163),0.67274(0.01179),0.66489(0.00952)
+2025/5/16,R2One_Infinity005Wass_DeepConvNet_oneMengExp3ToMengExp12_1,0.60497(0.02492),0.61192(0.01231),0.70667(0.01453),0.70434(0.00921)
+2025/5/16,R2One_Infinity005Wass_InceptionEEG_oneMengExp3ToMengExp12_1,0.65084(0.00747),0.63793(0.00620),0.71510(0.00981),0.71345(0.00837)
+2025/5/16,R2One_Infinity005Wass_EEGNet_oneMengExp3ToPhysioNetMI_1,0.64786(0.00920),0.63535(0.01101),0.64682(0.01924),0.63752(0.01885)
+2025/5/16,R2One_Infinity005Wass_ShallowConvNet_oneMengExp3ToPhysioNetMI_1,0.61728(0.00825),0.59762(0.01618),0.60695(0.01671),0.58671(0.03204)
+2025/5/16,R2One_Infinity005Wass_DeepConvNet_oneMengExp3ToPhysioNetMI_1,0.60794(0.01399),0.58729(0.00678),0.63003(0.03112),0.62496(0.03188)
+2025/5/16,R2One_Infinity005Wass_InceptionEEG_oneMengExp3ToPhysioNetMI_1,0.65164(0.00736),0.63277(0.01563),0.65612(0.01041),0.63483(0.01029)
