@@ -14,84 +14,139 @@ from .model_utils.model_standard_deep4_functions import (
 from torch.nn import init
 
 class EEG_Infinity(nn.Module):
+    """
+    EEG_Infinity: A domain-adaptive EEG classification model with configurable backbone and optional channel normalization.
 
-    def __init__(self, transfer_matrix_source, transfer_matrix_target, num_channels = 3, FIR_order=17, FIR_n=1, backbone_type='InceptionEEG',right_idx=None, left_idx=None, device='cuda'):
+    This model includes:
+    - Alignment heads for source and target domain EEG signals.
+    - Optional channel normalization.
+    - Configurable feature extractor (backbone).
+    - Classification and domain-adversarial branches.
+
+    Args:
+        transfer_matrix_source (Tensor): Transfer matrix for source domain.
+        transfer_matrix_target (Tensor): Transfer matrix for target domain.
+        num_channels (int): Number of EEG channels. Default is 3.
+        FIR_order (int): Order of the FIR filter. Default is 17.
+        FIR_n (int): Number of FIR filters. Default is 1.
+        backbone_type (str): Type of feature extractor backbone. Options: 'EEGNet', 'ShallowConvNet', 'DeepConvNet', 'InceptionEEG', 'EEGSym'.
+        right_idx (list, optional): Right hemisphere indices for EEGSym.
+        left_idx (list, optional): Left hemisphere indices for EEGSym.
+        device (str): Device for computation. Default is 'cuda'.
+        use_channel_norm (bool): Whether to apply ChannelNorm. Default is True.
+        num_classes (int): Number of output classes. Default is 2.
+        feature_map_size (int, optional): Override for feature map size after feature extractor.
+    """
+
+    def __init__(self,
+                 transfer_matrix_source,
+                 transfer_matrix_target,
+                 num_channels=3,
+                 FIR_order=17,
+                 FIR_n=1,
+                 backbone_type='InceptionEEG',
+                 right_idx=None,
+                 left_idx=None,
+                 device='cuda',
+                 use_channel_norm=True,
+                 num_classes=2,
+                 feature_map_size=None):
         super(EEG_Infinity, self).__init__()
 
-        self.num_classes = 2
+        self.num_classes = num_classes
         self.num_channels = transfer_matrix_source.size()[0]
+        self.use_channel_norm = use_channel_norm
 
-        # define alignment heads for source domain
+        # Alignment heads
         self.alignment_head_source = Alignment_head(transfer_matrix=transfer_matrix_source,
                                                     FIR_order=FIR_order, FIR_n=FIR_n, device=device)
         self.alignment_head_target = Alignment_head(transfer_matrix=transfer_matrix_target,
                                                     FIR_order=FIR_order, FIR_n=FIR_n, device=device)
-        # froze the channel_transfer_matrix
-        # self.alignment_head_source.frozen_transfer_matrix()
+        self.alignment_head_source.frozen_transfer_matrix()
 
-        self.channel_norm = ChannelNorm()
+        if self.use_channel_norm:
+            self.channel_norm = ChannelNorm()
 
-        # define features extractor
+        # Feature extractor
         if backbone_type == 'EEGNet':
             self.feature = EEGNetFeatureExtractor(num_channels=num_channels)
-            self.feature_map_size = 192 # 3s: 192 4s: 256
+            inferred_map_size = 192 if feature_map_size is None else feature_map_size
         elif backbone_type == 'ShallowConvNet':
             self.feature = ShallowNetFeatureExtractor(num_channels=num_channels)
-            self.feature_map_size = 800  # 3s: 800 4s: 1120
+            inferred_map_size = 800 if feature_map_size is None else feature_map_size
         elif backbone_type == 'DeepConvNet':
             self.feature = DeepNetFeatureExtractor(num_channels=num_channels)
-            self.feature_map_size = 600  # 3s: 600 4s: 1000
+            inferred_map_size = 600 if feature_map_size is None else feature_map_size
         elif backbone_type == 'InceptionEEG':
             self.feature = InceptionEEGFeatureExtractor(num_channels=num_channels)
-            self.feature_map_size = 72  # 3s: 72 4s: 96
+            inferred_map_size = 72 if feature_map_size is None else feature_map_size
         elif backbone_type == 'EEGSym':
             self.feature = EEGSymFeatureExtractor(right_idx=right_idx, left_idx=left_idx)
-            self.feature_map_size = self.feature.feature_map_size
+            inferred_map_size = self.feature.feature_map_size
         else:
-            raise ("error type of backbone")
+            raise ValueError(f"Unknown backbone_type: {backbone_type}")
 
-        # define feature cls
-        self.class_classifier = nn.Sequential()
-        self.class_classifier.add_module('c_fc1', nn.Linear(self.feature_map_size, 128))
-        self.class_classifier.add_module('c_bn1', nn.BatchNorm1d(128))
-        self.class_classifier.add_module('c_relu1', nn.ReLU(True))
-        self.class_classifier.add_module('c_drop1', nn.Dropout())
-        self.class_classifier.add_module('c_fc2', nn.Linear(128, 64))
-        self.class_classifier.add_module('c_bn2', nn.BatchNorm1d(64))
-        self.class_classifier.add_module('c_relu2', nn.ReLU(True))
-        self.class_classifier.add_module('c_fc3', nn.Linear(64, self.num_classes))
-        # define domain cls
-        self.domain_classifier = nn.Sequential()
-        self.domain_classifier.add_module('c_fc1', nn.Linear(self.feature_map_size, 128))
-        self.domain_classifier.add_module('c_bn1', nn.BatchNorm1d(128))
-        self.domain_classifier.add_module('c_relu1', nn.ReLU(True))
-        self.domain_classifier.add_module('c_drop1', nn.Dropout())
-        self.domain_classifier.add_module('c_fc2', nn.Linear(128, 64))
-        self.domain_classifier.add_module('c_bn2', nn.BatchNorm1d(64))
-        self.domain_classifier.add_module('c_relu2', nn.ReLU(True))
-        # only one output
-        self.domain_classifier.add_module('c_fc3', nn.Linear(64, 1))
+        self.feature_map_size = feature_map_size if feature_map_size is not None else inferred_map_size
+
+        # Classification head
+        self.class_classifier = nn.Sequential(
+            nn.Linear(self.feature_map_size, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(True),
+            nn.Dropout(),
+            nn.Linear(128, 64),
+            nn.BatchNorm1d(64),
+            nn.ReLU(True),
+            nn.Linear(64, self.num_classes)
+        )
+
+        # Domain classifier head
+        self.domain_classifier = nn.Sequential(
+            nn.Linear(self.feature_map_size, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(True),
+            nn.Dropout(),
+            nn.Linear(128, 64),
+            nn.BatchNorm1d(64),
+            nn.ReLU(True),
+            nn.Linear(64, 1)
+        )
+
 
     def clip_gradients_domain_classifier(self, threshold=0.01):
         """
-        clip all parameter gradients of self.domain_classifier.
+        Clip gradients of domain classifier parameters to stabilize training.
 
-        :param threshold: truncation threshold, default is 0.01
+        Args:
+            threshold (float): Maximum allowed norm for gradients. Default is 0.01.
         """
         torch.nn.utils.clip_grad_norm_(self.domain_classifier.parameters(), threshold)
 
+
     def forward(self, input_data, domain, alpha):
+        """
+        Forward pass for EEG_Infinity model.
+
+        Args:
+            input_data (Tensor): Input EEG data tensor of shape (B, C, T).
+            domain (int): 0 for source domain, 1 for target domain.
+            alpha (float): Gradient reversal scaling factor for domain adaptation.
+
+        Returns:
+            tuple: (class_output, domain_output, filter_output, spatial_output)
+        """
         input_data = input_data.to(torch.float32)
         if domain == 0:
             filter_output, spatial_output = self.alignment_head_source(input_data)
         else:
             filter_output, spatial_output = self.alignment_head_target(input_data)
-        __temp__ = self.feature(self.channel_norm(filter_output))
-        _feature_ = __temp__.view(-1, self.feature_map_size)
-        _reverse_feature_ = ReverseLayerF.apply(_feature_, alpha)
 
-        class_output = self.class_classifier(_feature_)
-        domain_output = self.domain_classifier(_reverse_feature_)
+        features_input = self.channel_norm(filter_output) if self.use_channel_norm else filter_output
+        features = self.feature(features_input).view(-1, self.feature_map_size)
+        reversed_features = ReverseLayerF.apply(features, alpha)
+
+        class_output = self.class_classifier(features)
+        domain_output = self.domain_classifier(reversed_features)
 
         return class_output, domain_output, filter_output, spatial_output
 
