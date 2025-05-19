@@ -3,11 +3,10 @@ import os
 file_name_X = "balanced_data.npy"
 file_name_Y = "balanced_label.npy"
 
-base_path = "/gpfs/work/int/chengxuanqin21/science_works/EEGData/dataset_sexmigrainedb/concatedData/"
+base_path = "to/your/dataset"
 input_path_X = os.path.join(base_path, "all", file_name_X)
 input_path_Y = os.path.join(base_path, "all", file_name_Y)
 
-# === 检查并创建保存目录 ===
 for sub_dir in ["train", "eval", "test"]:
     os.makedirs(os.path.join(base_path, sub_dir), exist_ok=True)
 
@@ -42,7 +41,7 @@ eval_list = [
 
 num_channel = 144
 len_window = 513
-print("五折分类计划")
+print("5 fold cross-validation")
 print(test_list)
 print(eval_list)
 # # train_list is remaining
@@ -69,7 +68,7 @@ for cross_id in range(5):
             train_container_X[train_count, :, :] = all_data[i, :, :]
             train_container_Y[train_count] = all_label[i]
             train_count = train_count + 1
-    print("第{0}折分离结果，训练样本个数{1}，验证样本个数{2}，测试样本个数{3}".format(cross_id, train_count, eval_count, test_count))
+    print("Cross-{0}: Training Samples{1}, Validation Samples{2}, Testing Samples{3}".format(cross_id, train_count, eval_count, test_count))
     test_container_X = test_container_X[:test_count, :, :]
     eval_container_X = eval_container_X[:eval_count, :, :]
     train_container_X = train_container_X[:train_count, :, :]
@@ -77,21 +76,21 @@ for cross_id in range(5):
     test_container_Y = test_container_Y[:test_count]
     eval_container_Y = eval_container_Y[:eval_count]
     train_container_Y = train_container_Y[:train_count]
-    print("测试集保存")
+    print("Save Test")
     print(test_container_X.shape)
     print(test_container_Y.shape)
     np.save(os.path.join(base_path, "test", "cross_{0}_".format(cross_id) + file_name_X),
             test_container_X)
     np.save(os.path.join(base_path, "test", "cross_{0}_".format(cross_id) + file_name_Y),
             test_container_Y)
-    print("验证集保存")
+    print("Save Val")
     print(eval_container_X.shape)
     print(eval_container_Y.shape)
     np.save(os.path.join(base_path, "eval", "cross_{0}_".format(cross_id) + file_name_X),
             eval_container_X)
     np.save(os.path.join(base_path, "eval", "cross_{0}_".format(cross_id) + file_name_Y),
             eval_container_Y)
-    print("训练集保存")
+    print("Save Training")
     print(train_container_X.shape)
     print(train_container_Y.shape)
     np.save(os.path.join(base_path, "train", "cross_{0}_".format(cross_id) + file_name_X),
